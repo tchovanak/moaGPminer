@@ -99,14 +99,13 @@ public class Segment implements Serializable{
     }
     
     /**
-     * Get sparse itemset representation of the current binary intastance
+     * Get sparse itemset representation of the current binary instance
      * @param inst current transaction instance
      * @return an itemset composed by the indices of the non-zero elements in the instance
      */    
     private Itemset toItemset(Instance inst){
         Itemset itemset = new Itemset();
-        
-        for(int val = 0; val < inst.numValues(); val++){
+        for(int val = 1; val < inst.numValues(); val++){ // from val 1 because first val is groupid.
             itemset.addItem(inst.index(val));
         }
         return itemset;
