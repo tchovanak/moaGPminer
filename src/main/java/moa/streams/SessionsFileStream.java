@@ -1,22 +1,3 @@
-/*
- *    ZakiFileStream.java
- *    Copyright (C) 2012 Universitat Politècnica de Catalunya
- *    @author Massimo Quadrana <max.square@gmail.com>
- *
- *    This program is free software; you can redistribute it and/or modify
- *    it under the terms of the GNU General Public License as published by
- *    the Free Software Foundation; either version 2 of the License, or
- *    (at your option) any later version.
- *
- *    This program is distributed in the hope that it will be useful,
- *    but WITHOUT ANY WARRANTY; without even the implied warranty of
- *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *    GNU General Public License for more details.
- *
- *    You should have received a copy of the GNU General Public License
- *    along with this program; if not, write to the Free Software
- *    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- */
 package moa.streams;
 
 import java.io.*;
@@ -32,8 +13,12 @@ import com.yahoo.labs.samoa.instances.Instance;
 import com.yahoo.labs.samoa.instances.SparseInstance;
 
 /**
- * Reads a stream from a file generated using the IMB-Generator from Zaki.
- * @author Massimo
+ * Reads a stream from a file 
+ * Format csv, delimiter is comma ','
+ * Every line represents one session
+ * First number of line is user id, 
+ * next numbers represents visits of individual pages, or categories in session
+ * @author Tomas Chovanak
  */
 public class SessionsFileStream extends AbstractOptionHandler 
     implements InstanceStream {
@@ -52,6 +37,8 @@ public class SessionsFileStream extends AbstractOptionHandler
     protected BufferedReader fileReader;
 
     protected boolean hitEndOfFile;
+    
+    private int counter = 0;
 
     protected Instance lastInstanceRead;
 
@@ -123,14 +110,19 @@ public class SessionsFileStream extends AbstractOptionHandler
     protected boolean readNextInstanceFromFile() {
         try {
             String line = this.fileReader.readLine();
+            System.out.println(line);
+            System.out.println(counter++);
             if(line != null){
                 String[] lineSplitted = line.split(",");
-                int nItems = lineSplitted.length;
+                int nItems = lineSplitted.length + 1;
                 double[] attValues = new double[nItems];
                 int[] indices = new int[nItems];
-                for(int idx = 0; idx < nItems; idx++){
-                    attValues[idx] = 1;
-                    indices[idx] = Integer.parseInt(lineSplitted[idx]);
+                // to each session instance we add one item representing group user belongs to 
+                attValues[0] = -1; // -1 means no group - it will be later on added to instance as result of clustering process
+                indices[0] = 0;
+                for(int idx = 1; idx < nItems; idx++){
+                    attValues[idx] = Integer.parseInt(lineSplitted[idx-1]);
+                    indices[idx] = idx;
                 }
                 this.lastInstanceRead = new SparseInstance(1.0,attValues,indices,nItems);
                 return true;

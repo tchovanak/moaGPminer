@@ -23,7 +23,7 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import moa.learners.IncMine;
+import moa.learners.IncMine2;
 
 public class SemiFCI implements Comparable<SemiFCI>,Serializable {
 
@@ -46,7 +46,7 @@ public class SemiFCI implements Comparable<SemiFCI>,Serializable {
         Collections.sort(itemset);
         
         this.id = new SemiFCIid(items.size(), -1);
-        this.supports = new int[IncMine.windowSize];
+        this.supports = new int[IncMine2.windowSize];
         this.updated = true; //changed! newly added semiFCI are updated!!
 
         //append the current support at the beginning of the support vector

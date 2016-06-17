@@ -105,8 +105,8 @@ public class Segment implements Serializable{
      */    
     private Itemset toItemset(Instance inst){
         Itemset itemset = new Itemset();
-        for(int val = 1; val < inst.numValues(); val++){ // from val 1 because first val is groupid.
-            itemset.addItem(inst.index(val));
+        for(int val = 2; val < inst.numValues(); val++){ // from val 2 because first val is groupid and second uid
+            itemset.addItem((int)inst.value(val));
         }
         return itemset;
     }

@@ -53,6 +53,7 @@ public class LearnModel extends MainTask {
             Integer.MAX_VALUE);
 
     public LearnModel() {
+        
     }
 
     public LearnModel(Learner learner, InstanceStream stream,

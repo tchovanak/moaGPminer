@@ -50,24 +50,29 @@ public class LearnEvaluateBehaviourPatterns extends MainTask {
                 + "training with each example in sequence.";
     }
     
-    private static final long serialVersionUID = 1L;
+   private static final long serialVersionUID = 1L;
     
-    public ClassOption learnerOption = new ClassOption("learner", 'l',
+   public ClassOption learnerOption = new ClassOption("learner", 'l',
             "To train.", Learner.class, "IncMine");
 
    public ClassOption streamOption = new ClassOption("stream", 's',
             "Stream to learn from.", InstanceStream.class, "ArffFileStream");
+   
+  
     
     @Override
     protected Object doMainTask(TaskMonitor tm, ObjectRepository or) {
+      
         Learner learner = new PatternsMine();
+        learner.resetLearning();
 	InstanceStream stream = (InstanceStream) getPreparedClassOption(this.streamOption);
 	PatternsRecommendationEvaluator evaluator = 
                 new PatternsRecommendationEvaluator();
+       
         while (stream.hasMoreInstances()) {
             System.out.println("next instance");
             Example trainInst = stream.nextInstance();
-            System.out.println(trainInst);
+            //System.out.println(trainInst);
             Example testInst = (Example) trainInst.copy();
              /* this returns array of ids of recommended items from actual 
                 testInst learner will find with LCS most promising patterns

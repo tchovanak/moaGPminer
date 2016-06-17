@@ -53,10 +53,11 @@ public abstract class SlidingWindowManager extends Observable implements Seriali
     /**
      * Notifies the IncMine instance associated to the segment manager
      */
-    protected void notifyIncMine()
+    protected void notifyIncMine(ObserverParamWrapper param)
     {
+        param.setSegmentLength(currentSegment.size());
         setChanged();
-        notifyObservers(currentSegment.size());
+        notifyObservers(param);
         clearChanged();
     }
      

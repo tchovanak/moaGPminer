@@ -43,10 +43,10 @@ public class FixedLengthWindowManager extends SlidingWindowManager {
         currentSegment.addItemset(transaction);
         if(currentSegment.size() >= segmentLenght)
         {
-            System.out.print("Updating FCI set....");
+            System.out.println("Updating FCI set....");
             ObserverParamWrapper param = new ObserverParamWrapper();
-            param.setGroupid(transaction.index(0)); // at index 0 there is groupid
-            notifyIncMine();
+            param.setGroupid((int)transaction.value(0)); // at index 0 there is groupid
+            notifyIncMine(param);
             currentSegment.clear();
         }
     }
