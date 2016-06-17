@@ -1,22 +1,3 @@
-/*
- *    IncMine.java
- *    Copyright (C) 2012 Universitat PolitÃ¨cnica de Catalunya
- *    @author Massimo Quadrana <max.square@gmail.com>
- *
- *    This program is free software; you can redistribute it and/or modify
- *    it under the terms of the GNU General Public License as published by
- *    the Free Software Foundation; either version 2 of the License, or
- *    (at your option) any later version.
- *
- *    This program is distributed in the hope that it will be useful,
- *    but WITHOUT ANY WARRANTY; without even the implied warranty of
- *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *    GNU General Public License for more details.
- *
- *    You should have received a copy of the GNU General Public License
- *    along with this program; if not, write to the Free Software
- *    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- */
 package moa.learners;
 
 import java.math.BigDecimal;
@@ -43,6 +24,11 @@ import moa.streams.filters.ReplacingMissingValuesFilter;
 import moa.utils.LCS;
 import moa.utils.MapUtil;
 
+/*
+    This class defines new AbstractLearner that performs clustering of users to groups and 
+    mining of global and group frequent itemsets.
+    
+*/
 public class PatternsMine extends AbstractLearner implements Observer {
 
     private static final long serialVersionUID = 1L;
@@ -50,11 +36,14 @@ public class PatternsMine extends AbstractLearner implements Observer {
     private IncMine2 incMine;
     private WithKmeans clusterer = new WithKmeans();
     private Map<Integer,UserModel> usermodels = new HashMap<Integer, UserModel>();
-    private int minNumberOfChangesInUserModel = 50;
     private int microclusteringUpdatesCounter = 0;
     
     public IntOption numMinNumberOfChangesInUserModel = new IntOption("minNumOfChangesInUserModel", 'c',
             "The minimal number of changes in user model to perform next actualization of clusters", 1, 1,
+            Integer.MAX_VALUE);
+    
+    public IntOption numMinNumberOfMicroclustersUpdates = new IntOption("minNumOfMicroclustersUpdates", 'c',
+            "The minimal number of microcluster updates to perform next kmeans of microclusters", 1, 1,
             Integer.MAX_VALUE);
    
     public IntOption numPages = new IntOption("numPages", 'p',
@@ -84,19 +73,19 @@ public class PatternsMine extends AbstractLearner implements Observer {
     public IntOption fixedSegmentLengthOption = new IntOption(
             "fixedSegmentLength", 'l',
             "Fixed Segment Length.", 1000);
+    
+    public IntOption numberOfRecommendedItemsOption = new IntOption(
+            "numberOfRecommendedItems", 'n',
+            "Number of item recommended.", 5);
+    
+    public IntOption evaluationWindowSizeOption = new IntOption(
+            "evaluationWindowSize", 'e',
+            "Size of evaluation window.", 3);
+    
     private Clustering kmeansClustering;
-    private int evaluationWindowSize = 3;
-    private int numberOfRecommendedItems = 10;
      
     public PatternsMine(){
         super();
-        int windowSizeOption = this.windowSizeOption.getValue();
-        int maxItemsetLengthOption = this.maxItemsetLengthOption.getValue();
-        int numberOfGroupsOption = this.numberOfGroupsOption.getValue();
-        double minSupportOption = this.minSupportOption.getValue();
-        double relaxationRateOption = this.relaxationRateOption.getValue();
-        int fixedSegmentLengthOption = this.fixedSegmentLengthOption.getValue();
-        
         this.clusterer = new WithKmeans();
         this.clusterer.kOption.setValue(10);
         this.clusterer.maxNumKernelsOption.setValue(50);
@@ -119,17 +108,18 @@ public class PatternsMine extends AbstractLearner implements Observer {
         // first update user model with new data
         Instance inst = (Instance) e.getData();
         UserModel um = updateUserModel(inst);
-        if(um.getNumberOfChanges() > minNumberOfChangesInUserModel){
+        if(um.getNumberOfChanges() > this.numMinNumberOfChangesInUserModel.getValue()){
             um.setNumberOfChanges(0);
             // perform clustering with user model 
             Instance umInstance = um.toInstance(numPages.getValue());
             clusterer.trainOnInstance(umInstance);
-            if(this.microclusteringUpdatesCounter++ > 50){
+            if(this.microclusteringUpdatesCounter++ > this.numMinNumberOfMicroclustersUpdates.getValue()){
                 this.microclusteringUpdatesCounter = 0;
                 Clustering results = clusterer.getMicroClusteringResult(); // append group to instance that it belongs to...
                 if(results != null){
                     AutoExpandVector<Cluster> clusters = results.getClustering();
                     if(clusters.size() > 0){
+                        // save new clustering
                         this.kmeansClustering = Clustream.kMeans(
                                 this.numberOfGroupsOption.getValue(),
                                 clusters);
@@ -137,7 +127,7 @@ public class PatternsMine extends AbstractLearner implements Observer {
                 }
             }
         }
-        double groupid = um.getGroupid(); // now update instance with groupid
+        double groupid = um.getGroupid(); // now update instance with groupid from user model
         if(groupid > -1){   
             int nItems = inst.numValues();
             double[] attValues = new double[nItems];
@@ -159,26 +149,23 @@ public class PatternsMine extends AbstractLearner implements Observer {
     public double[] getVotesForInstance(Example e) {
         // append group to instance that it belongs to...
         Instance session = (Instance)e.getData();
-        ArrayList<Double> sessionArray = new ArrayList<>();
+        // we need to copy instance data to sessionArray where we can modify them 
+        // because data in Instance cannot be changed i dont know why...
+        ArrayList<Double> sessionArray = new ArrayList<>(); 
         for(int i = 0; i < session.numValues(); i++){
-            sessionArray.add(i,session.value(i));
+            sessionArray.add(i,session.value(i)); 
         }
-        if(kmeansClustering != null){
-            Instance inst = getUserModelInstanceFromExampleInstance(session);
-            if(inst != null){
-                UserModel um = getUserModelFromInstance(session);
+        if(kmeansClustering != null){  // if already clustering was performed
+            UserModel um = getUserModelFromInstance(session);
+            if(um != null){
+                Instance inst = um.toInstance(numPages.getValue()); 
                 Cluster bestCluster = null;
-                //double maxDist = Double.MAX_VALUE;
                 double maxProb = 0.0;
                 for(Cluster c : this.kmeansClustering.getClustering()){
-                    SphereCluster cs = (SphereCluster) c;
+                    SphereCluster cs = (SphereCluster) c; // kmeans produce sphere clusters
                     double prob = cs.getInclusionProbability(inst);
-                    double dist = cs.getCenterDistance(inst);
-                    double radius = cs.getRadius();
-                    double distToRadius = dist - radius;
                     if(prob > maxProb){
                         bestCluster = cs;
-                        //maxDist = distToRadius;
                         maxProb = prob;
                         um.setGroupid(bestCluster.getId());
                         sessionArray.set(0,um.getGroupid());
@@ -187,94 +174,87 @@ public class PatternsMine extends AbstractLearner implements Observer {
             }
         }
         
-        
-        
+        int evaluationWindowSize = evaluationWindowSizeOption.getValue();
+        int numberOfRecommendedItems = numberOfRecommendedItemsOption.getValue();
+        // TESTING Instance - how it performs on recommendation.
         // get window from actual instance
-        List<Integer> window = new ArrayList<Integer>(); // window of length
-        List<Integer> outOfWindow = new ArrayList<Integer>(); // out of window 
-        if(this.evaluationWindowSize >= (sessionArray.size()-1)){
-            return null;
+        List<Integer> window = new ArrayList<>(); // items inside window 
+        List<Integer> outOfWindow = new ArrayList<>(); // items out of window 
+        if(evaluationWindowSize >= (sessionArray.size()-1)){ 
+            return null; // this is when window is too small - it is ignored.
         }
-        for(int i = 2; i <= this.evaluationWindowSize + 1; i++){ // first item is groupid, 2nd uid
+        for(int i = 2; i <= evaluationWindowSize + 1; i++){ // first item is groupid, 2nd uid
             window.add((int) Math.round(sessionArray.get(i)));
         }
-        for(int i = this.evaluationWindowSize + 2; i< sessionArray.size(); i++){
+        // maximum number of evaluated future items is the same as number of recommended items.
+        for(int i = evaluationWindowSize + 2, j = 0; 
+            i < sessionArray.size() && j < numberOfRecommendedItems;
+            i++, j++){
             outOfWindow.add((int) Math.round(sessionArray.get(i)));
         }
-        List<Integer> recommendations = new ArrayList<Integer>();
+        List<Integer> recommendations = new ArrayList<>();
         // how to get all fcis found ?
-        double maxWeight = 0;
         FCITable fciGlobal = this.incMine.fciTableGlobal;
-        
         Iterator<SemiFCI> it = fciGlobal.iterator();
-        Map<SemiFCI, Double> mapFciWeight = new HashMap<SemiFCI,Double>();
-        int index = 0;
+        Map<SemiFCI, Double> mapFciWeight = new HashMap<>();
         while(it.hasNext()){
             SemiFCI fci = it.next();
             if(fci.size() > 1){
                 List<Integer> items = fci.getItems();
-                double lcsVal = LCS.computeLongestCommonSubset(items,window) / ((double)window.size());
+                double lcsVal = ((double)LCS.computeLongestCommonSubset(items,window)) / ((double)window.size());
                 double support = 
-                        ((double)fci.getApproximateSupport())/((double)this.fixedSegmentLengthOption.getValue());
+                       ((double)fci.getApproximateSupport())/((double)this.fixedSegmentLengthOption.getValue());
                 double val = support*0.5 + lcsVal*0.5;
                 mapFciWeight.put(fci, val);
-                //System.out.println(fci.toString());
-                //System.out.println(fci.getApproximateSupport());
             }
-            index++;
         }
         
-//        if(sessionArray.get(0) > -1){  // if group has some fci append it to list
-//            List<FCITable> fciTables = this.incMine.fciTablesGroups;
-//            FCITable fciGroup = fciTables.get((int) Math.round(sessionArray.get(0)));
-//            Iterator<SemiFCI> itG = fciGroup.iterator();
-//            while(itG.hasNext()){
-//                SemiFCI fci = itG.next();
-//                if(fci.size() > 1){
-//                    List<Integer> items = fci.getItems();
-//                    double lcsVal = LCS.computeLongestCommonSubset(items,window);
-//                    double support = fci.getApproximateSupport()/this.fixedSegmentLengthOption.getValue();
-//                    double val = support*0.5 + lcsVal*0.5;
-//                    mapFciWeight.put(fci, val);
-//                }
-//                
-//            }
-//            index++;
-//        }
+        // This next block performs the same with group fcis. 
+        // This can be commented out to test performance without group fcis.
+        if(sessionArray.get(0) > -1){  // if group has some fci append it to list
+            List<FCITable> fciTables = this.incMine.fciTablesGroups;
+            FCITable fciGroup = fciTables.get((int) Math.round(sessionArray.get(0)));
+            Iterator<SemiFCI> itG = fciGroup.iterator();
+            while(itG.hasNext()){
+                SemiFCI fci = itG.next();
+                if(fci.size() > 1){
+                    List<Integer> items = fci.getItems();
+                    double lcsVal = LCS.computeLongestCommonSubset(items,window);
+                    double support = fci.getApproximateSupport()/this.fixedSegmentLengthOption.getValue();
+                    double val = support*0.5 + lcsVal*0.5;
+                    mapFciWeight.put(fci, val);
+                }
+            }
+        }
+        
+        // all fcis found have to be sorted descending by its support and similarity.
         Map<SemiFCI, Double> sortedByValue = MapUtil.sortByValue(mapFciWeight);
-        index = 0;
-        List<Integer> recs = new ArrayList<Integer>(); 
+        List<Integer> recs = new ArrayList<>(); 
         for(Map.Entry<SemiFCI, Double> entry : sortedByValue.entrySet()) {
             SemiFCI key = entry.getKey();
-            index++;
             List<Integer> items = key.getItems();
             Iterator<Integer> itItems = items.iterator();
             while(itItems.hasNext()){
                 Integer item =  itItems.next();
-                if(!window.contains(item) && !recs.contains(item)){  //
+                if(!window.contains(item) && !recs.contains(item)){  // create unique recommendations
                     recs.add(item);
-                    if(recs.size() >= this.numberOfRecommendedItems){
+                    if(recs.size() >= numberOfRecommendedItems){
                         break;
                     }
                 }
             }
-            if(recs.size() >= this.numberOfRecommendedItems){
+            if(recs.size() >= numberOfRecommendedItems){
                  break;
             }
         }
         
         double lcsVal = LCS.computeLongestCommonSubset(outOfWindow, recs);
+        // lcsVal contains number of items that are same in outOfWindow and recs
         double[] lcsValues = new double[1];
-        lcsValues[0] = lcsVal;
+        lcsValues[0] = lcsVal; // in future the window will slide over actual session. 
+                               // Now only one set of recommended items is created
         return lcsValues;
         
-//        // get fcis for group
-//         
-        //this.incMine.fciTablesGroups;
-        // then perform LCS and find recommendend items finally
-//        allFcis = global_FCIs + groupFCIs
-        // LCS
-       
     }
     
     @Override
@@ -357,16 +337,15 @@ public class PatternsMine extends AbstractLearner implements Observer {
        
     }
     
-    private Instance getUserModelInstanceFromExampleInstance(Instance inst){
-        int uid = (int)inst.value(1);
-        if(usermodels.containsKey(uid)){
-            UserModel um = usermodels.get(uid);
-            return um.toInstance(numPages.getValue());
-        }else{
-            return null;
-        }
-        
-    }
+//    private Instance getUserModelInstanceFromExampleInstance(Instance inst){
+//        int uid = (int)inst.value(1);
+//        if(usermodels.containsKey(uid)){
+//            UserModel um = usermodels.get(uid);
+//            return um.toInstance(numPages.getValue());
+//        }else{
+//            return null;
+//        }
+//    }
 
     private UserModel getUserModelFromInstance(Instance inst) {
         int uid = (int)inst.value(1);

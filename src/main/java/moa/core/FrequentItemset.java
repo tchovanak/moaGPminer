@@ -23,6 +23,9 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
+/*
+    (Tomas Chovanak) No change
+*/
 public class FrequentItemset {
     
     protected List<Integer> items = new ArrayList<Integer>();

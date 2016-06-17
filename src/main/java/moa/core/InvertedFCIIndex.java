@@ -22,6 +22,9 @@ package moa.core;
 import java.io.Serializable;
 import java.util.*;
 
+/*
+    (Tomas Chovanak) No change
+*/
 public class InvertedFCIIndex implements Serializable {
     
     private static final long serialVersionUID = 1L;

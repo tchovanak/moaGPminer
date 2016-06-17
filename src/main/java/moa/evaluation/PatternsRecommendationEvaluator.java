@@ -24,18 +24,56 @@ import moa.AbstractMOAObject;
 import moa.core.Measurement;
 import weka.core.Utils;
 import moa.core.Example;
+import com.yahoo.labs.samoa.instances.Instance;
+import java.util.LinkedList;
+import java.util.Queue;
 
 /**
- * Classification evaluator that performs basic incremental evaluation.
+ * Pattern mining evaluator that performs basic incremental evaluation.
  *
- * @author Richard Kirkby (rkirkby@cs.waikato.ac.nz)
- * @author Albert Bifet (abifet at cs dot waikato dot ac dot nz)
- * @version $Revision: 7 $
+ * @author Tomas Chovanak
  */
 public class PatternsRecommendationEvaluator extends AbstractMOAObject{
 
-    public void addResult(Example instance, double[] recommendations){
-        
+    private final Queue<Double> window = new LinkedList<>();
+    private int sumLCS =  0;
+    private int allItems = 0;
+    private int windowSize = 1000;
+    private double sumWindow = 0.0;
+    
+    private void addNum(double num) {
+        sumWindow += num;
+        window.add(num);
+        if (window.size() > windowSize) {
+            sumWindow -= window.remove();
+        }
+    }
+    
+    private double getAvg() {
+        if (window.isEmpty()) return 0; // technically the average is undefined
+        return sumWindow / window.size();
+    }
+    
+    public void addResult(Example instance, double[] recommendations, int windowSize, 
+            int numberOfRecommendedItems){
+        if(recommendations != null){
+            double lcsVal = 0;
+            for(int i = 0; i < recommendations.length; i++){
+                 lcsVal += recommendations[i];
+            }
+            this.sumLCS += lcsVal;
+            double all = ((Instance)instance.getData()).numValues() - windowSize;
+            if(all > numberOfRecommendedItems){
+                all = numberOfRecommendedItems;
+            }
+            allItems += all;
+            double prec = lcsVal/all;
+            addNum(prec);
+        }
+        System.out.println("TP : " + sumLCS);
+        System.out.println("ALL : " + allItems);
+        System.out.println("PRECISION : " + (((double)sumLCS)/((double)allItems)));
+        System.out.println("MOVING AVERAGE: " + getAvg());
     }
     
     @Override

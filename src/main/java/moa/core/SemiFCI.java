@@ -24,7 +24,9 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import moa.learners.IncMine2;
-
+/*
+    (Tomas Chovanak) No change
+*/
 public class SemiFCI implements Comparable<SemiFCI>,Serializable {
 
     private static final long serialVersionUID = 7468516413419567582L;

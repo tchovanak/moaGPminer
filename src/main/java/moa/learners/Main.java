@@ -7,12 +7,14 @@ import moa.evaluation.PatternsRecommendationEvaluator;
 import moa.streams.InstanceStream;
 import moa.streams.SessionsFileStream;
 
+/*
+    Serves to test and debug patterns mine learner.
+    @Author : Tomas Chovanak
+*/
 public class Main {
     
     public static void main(String args[]){
-        //ZakiFileStream stream = new ZakiFileStream("C:\\merge-script\\stream1_stream2_drift-o0.25-l0.001.data");
-        //ZakiFileStream stream = new ZakiFileStream("C:\\cygwin\\home\\Massimo\\n1000t15i10p6.data");
-        //LEDGenerator stream = new LEDGenerator();
+        
         SessionsFileStream stream = new SessionsFileStream("g:\\workspace_GPMiner\\data\\alef_sessions_aggregated.csv");
         
         PatternsMine learner = new PatternsMine();
@@ -23,6 +25,9 @@ public class Main {
         learner.windowSizeOption.setValue(10);
         learner.numPages.setValue(5000);
         learner.numMinNumberOfChangesInUserModel.setValue(20);
+        learner.numMinNumberOfMicroclustersUpdates.setValue(50);
+        learner.evaluationWindowSizeOption.setValue(3);
+        learner.numberOfRecommendedItemsOption.setValue(10);
         learner.resetLearning();
         
         stream.prepareForUse();
@@ -31,18 +36,16 @@ public class Main {
 	PatternsRecommendationEvaluator evaluator = 
                 new PatternsRecommendationEvaluator();
         double sumLCS = 0.0;
+        int windowSize = learner.evaluationWindowSizeOption.getValue();
+        int numberOfRecommendedItems = learner.numberOfRecommendedItemsOption.getValue();
         while (stream.hasMoreInstances()) {
             Example trainInst = stream.nextInstance();
-            // System.out.println(trainInst);
             Example testInst = (Example) trainInst.copy();
              /* this returns array of ids of recommended items from actual 
                 testInst learner will find with LCS most promising patterns
                 and generate sets of recommendations*/
             double[] recommendations = learner.getVotesForInstance(testInst);
-            if(recommendations != null){
-                sumLCS += recommendations[0];
-            }
-            evaluator.addResult(testInst, recommendations); // evaluator will evaluate recommendations and update metrics with given results 
+            evaluator.addResult(testInst, recommendations, windowSize, numberOfRecommendedItems); // evaluator will evaluate recommendations and update metrics with given results 
             learner.trainOnInstance(trainInst); // this will start training proces - it means first update clustering and then find frequent patterns
         }
         

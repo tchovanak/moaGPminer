@@ -25,6 +25,9 @@ import java.util.List;
 import java.util.Observable;
 import com.yahoo.labs.samoa.instances.Instance;
 
+/*
+   I Made little change to notifyIncMine method (Tomas Chovanak).
+*/
 public abstract class SlidingWindowManager extends Observable implements Serializable{
     
     private static final long serialVersionUID = 1L;
@@ -52,6 +55,8 @@ public abstract class SlidingWindowManager extends Observable implements Seriali
 
     /**
      * Notifies the IncMine instance associated to the segment manager
+     * (Tomas Chovanak) I created wrapper object for parameters. This already has groupid
+     *  and in this method also segment length is set and sent to incmine.
      */
     protected void notifyIncMine(ObserverParamWrapper param)
     {

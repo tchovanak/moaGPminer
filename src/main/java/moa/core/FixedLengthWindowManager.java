@@ -22,6 +22,9 @@ package moa.core;
 
 import com.yahoo.labs.samoa.instances.Instance;
 
+/*
+   I Made little change to addInstance method (Tomas Chovanak).
+*/
 public class FixedLengthWindowManager extends SlidingWindowManager {
 
     private static final long serialVersionUID = -4548175425739509372L;
@@ -39,6 +42,9 @@ public class FixedLengthWindowManager extends SlidingWindowManager {
     }
 
     @Override
+    /*
+        I created wrapper object that sends groupid parameter to incmine.
+    */
     public void addInstance(Instance transaction) {
         currentSegment.addItemset(transaction);
         if(currentSegment.size() >= segmentLenght)

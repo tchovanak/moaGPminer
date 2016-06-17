@@ -63,14 +63,14 @@ public class LearnEvaluateBehaviourPatterns extends MainTask {
     @Override
     protected Object doMainTask(TaskMonitor tm, ObjectRepository or) {
       
-        Learner learner = new PatternsMine();
+        PatternsMine learner = new PatternsMine();
         learner.resetLearning();
 	InstanceStream stream = (InstanceStream) getPreparedClassOption(this.streamOption);
 	PatternsRecommendationEvaluator evaluator = 
                 new PatternsRecommendationEvaluator();
-       
+        int windowSize = learner.windowSizeOption.getValue();
+        int numberOfRecommendedItems = learner.numberOfRecommendedItemsOption.getValue();
         while (stream.hasMoreInstances()) {
-            System.out.println("next instance");
             Example trainInst = stream.nextInstance();
             //System.out.println(trainInst);
             Example testInst = (Example) trainInst.copy();
@@ -78,7 +78,7 @@ public class LearnEvaluateBehaviourPatterns extends MainTask {
                 testInst learner will find with LCS most promising patterns
                 and generate sets of recommendations*/
             double[] recommendations = learner.getVotesForInstance(testInst);
-            evaluator.addResult(testInst, recommendations); // evaluator will evaluate recommendations and update metrics with given results 
+            evaluator.addResult(testInst, recommendations, windowSize, numberOfRecommendedItems); // evaluator will evaluate recommendations and update metrics with given results 
             learner.trainOnInstance(trainInst); // this will start training proces - it means first update clustering and then find frequent patterns
         }
         return null;
@@ -88,6 +88,5 @@ public class LearnEvaluateBehaviourPatterns extends MainTask {
     public Class<?> getTaskResultType() {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
-
     
 }

@@ -25,6 +25,9 @@ import java.util.*;
 import moa.learners.IncMine;
 import moa.streams.ZakiFileStream;
 
+/*
+    (Tomas Chovanak) No change
+*/
 public class Utilities {
     
     private Utilities(){};

@@ -24,13 +24,14 @@ import java.math.RoundingMode;
 import java.util.*;
 import moa.MOAObject;
 import moa.core.*;
-import com.github.javacliparser.FloatOption;
-import com.github.javacliparser.IntOption;
-import com.github.javacliparser.MultiChoiceOption;
 import com.yahoo.labs.samoa.instances.Prediction;
 import com.yahoo.labs.samoa.instances.Instance;
-import moa.core.InstanceExample;
 
+
+/*
+    (Tomas Chovanak) Modified IncMine alghoritm to mine simultanly group and global 
+     frequent itemsets of users.
+*/
 public class IncMine2 extends AbstractLearner implements Observer {
     
     private static final long serialVersionUID = 1L;
@@ -107,6 +108,7 @@ public class IncMine2 extends AbstractLearner implements Observer {
         this.swmGlobal.deleteObservers();
         this.swmGlobal.addObserver(this);  
         this.swmGroups = new ArrayList<SlidingWindowManager>();
+        
         // prepares sliding window for each group
         for(int i = 0; i < this.numberOfGroupsOption; i++){
             this.swmGroups.add(i, new FixedLengthWindowManager(min_sup, this.maxItemsetLengthOption, this.fixedSegmentLengthOption));

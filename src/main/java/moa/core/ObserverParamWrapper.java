@@ -6,8 +6,9 @@
 package moa.core;
 
 /**
- *
- * @author Tomas
+ * This object serves as wrapper for parameters.
+ * It is being sent to incMine from sliding window manager.
+ * @author Tomas Chovanak
  */
 public class ObserverParamWrapper {
     private int segmentLength = 0;

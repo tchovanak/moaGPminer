@@ -30,6 +30,10 @@ import java.util.List;
 import com.yahoo.labs.samoa.instances.Instance;
 import com.yahoo.labs.samoa.instances.SparseInstance;
 
+
+/*
+    (Tomas Chovanak) Change in toItemset method.
+*/
 public class Segment implements Serializable{
 
     private static final long serialVersionUID = -5259948122890387234L;
@@ -100,6 +104,9 @@ public class Segment implements Serializable{
     
     /**
      * Get sparse itemset representation of the current binary instance
+     * (Tomas Chovanak) Because of used format of session file and instance being made from row of this file, 
+     * where each row represents session. And first number is groupid , second uid. 
+     * I changed iterator to iterate from 2nd item in instance.
      * @param inst current transaction instance
      * @return an itemset composed by the indices of the non-zero elements in the instance
      */    
