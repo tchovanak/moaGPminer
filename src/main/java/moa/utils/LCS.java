@@ -49,14 +49,12 @@ public class LCS {
         int i = 0, j = 0;
         while(i < M && j < N) {
             if (list1.get(i).equals(list2.get(j))) {
-                System.out.print(list1.get(i));
                 i++;
                 j++;
             }
             else if (opt[i+1][j] >= opt[i][j+1]) i++;
             else                                 j++;
         }
-        System.out.println();
 
     }
      

@@ -29,6 +29,7 @@ import java.util.ArrayList;
 import java.util.List;
 import com.yahoo.labs.samoa.instances.Instance;
 import com.yahoo.labs.samoa.instances.SparseInstance;
+import moa.utils.Configuration;
 
 
 /*
@@ -77,17 +78,16 @@ public class Segment implements Serializable{
      * Return the list of FCIs mined in the current segment in size ascending order
      * @return list of FCIs
      */
-    public List<SemiFCI> getFCI() {
+    public List<SemiFCI> getFCI() throws Exception {
                 
         
-        AlgoCharm_Bitset charmBitset = new AlgoCharm_Bitset();        
+        AlgoCharm_Bitset charmBitset = new AlgoCharm_Bitset();
         Itemsets closedItemsets = charmBitset.runAlgorithm(context, minSupport, 1000000);
         
         System.out.println("Compute FCIs:" + charmBitset.getExecTime() + "ms\n (CHARM-BITSET)");
         System.out.println(closedItemsets.getItemsetsCount() + " FCIs found in the last segment (CHARM-BITSET)");
         
         List<SemiFCI> fciSet = new ArrayList<SemiFCI>();
-       
         for(int levelIndex = 0; levelIndex < closedItemsets.getLevels().size(); levelIndex++){
             if (this.MAX_ITEMSET_LENGTH != -1 && levelIndex > this.MAX_ITEMSET_LENGTH)
                 break;
@@ -95,7 +95,9 @@ public class Segment implements Serializable{
             for(Itemset itemset: level){
                 SemiFCI newFci = new SemiFCI(new ArrayList<Integer>(itemset.getItems()),itemset.getAbsoluteSupport()); 
                 fciSet.add(newFci);
+                
             }
+            
         }
         
         

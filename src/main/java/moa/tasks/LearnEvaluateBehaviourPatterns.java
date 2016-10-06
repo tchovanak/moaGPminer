@@ -20,25 +20,13 @@
  */
 package moa.tasks;
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.PrintStream;
 
 import moa.learners.Learner;
-import moa.core.Measurement;
 import moa.core.ObjectRepository;
-import moa.core.TimingUtils;
-import moa.evaluation.ClassificationPerformanceEvaluator;
-import moa.evaluation.LearningCurve;
-import moa.evaluation.LearningEvaluation;
 import moa.evaluation.PatternsRecommendationEvaluator;
 import moa.options.ClassOption;
-import com.github.javacliparser.FileOption;
-import com.github.javacliparser.IntOption;
 import moa.streams.InstanceStream;
-import moa.streams.SessionsFileStream;
 import moa.learners.PatternsMine;
-import com.yahoo.labs.samoa.instances.Instance;
 import moa.core.Example;
 
 
@@ -67,9 +55,10 @@ public class LearnEvaluateBehaviourPatterns extends MainTask {
         learner.resetLearning();
 	InstanceStream stream = (InstanceStream) getPreparedClassOption(this.streamOption);
 	PatternsRecommendationEvaluator evaluator = 
-                new PatternsRecommendationEvaluator();
+                new PatternsRecommendationEvaluator("path");
         int windowSize = learner.windowSizeOption.getValue();
         int numberOfRecommendedItems = learner.numberOfRecommendedItemsOption.getValue();
+        double transsec = 0;
         while (stream.hasMoreInstances()) {
             Example trainInst = stream.nextInstance();
             //System.out.println(trainInst);
@@ -78,7 +67,7 @@ public class LearnEvaluateBehaviourPatterns extends MainTask {
                 testInst learner will find with LCS most promising patterns
                 and generate sets of recommendations*/
             double[] recommendations = learner.getVotesForInstance(testInst);
-            evaluator.addResult(testInst, recommendations, windowSize, numberOfRecommendedItems); // evaluator will evaluate recommendations and update metrics with given results 
+            evaluator.addResult(testInst, recommendations, windowSize, numberOfRecommendedItems, transsec); // evaluator will evaluate recommendations and update metrics with given results 
             learner.trainOnInstance(trainInst); // this will start training proces - it means first update clustering and then find frequent patterns
         }
         return null;

@@ -110,8 +110,6 @@ public class SessionsFileStream extends AbstractOptionHandler
     protected boolean readNextInstanceFromFile() {
         try {
             String line = this.fileReader.readLine();
-            System.out.println(line);
-            System.out.println(counter++);
             if(line != null){
                 String[] lineSplitted = line.split(",");
                 int nItems = lineSplitted.length + 1;

@@ -49,7 +49,7 @@ public abstract class SlidingWindowManager extends Observable implements Seriali
      * Returns the last list of FCIs that have been computed.
      * @return list of FCIs
      */
-    public List<SemiFCI> getFCI(){
+    public List<SemiFCI> getFCI() throws Exception{
         return currentSegment.getFCI();
     }
 

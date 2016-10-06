@@ -3,6 +3,7 @@ package Charm_BitSet;
 import java.io.IOException;
 import java.util.Map.Entry;
 import java.util.*;
+import moa.utils.Configuration;
 
 /**
  * This is an implementation of the CHARM algorithm that was proposed by MOHAMED
@@ -57,7 +58,7 @@ public class AlgoCharm_Bitset {
 	 * @throws IOException
 	 */
 	public Itemsets runAlgorithm(Context context, double minsup,
-			int hashTableSize) {
+			int hashTableSize) throws Exception {
 		this.hash = new HashTable(hashTableSize);
 		startTimestamp = System.currentTimeMillis();
 
@@ -103,13 +104,19 @@ public class AlgoCharm_Bitset {
 
 		// for optimization
 		sortChildren(root);
-
-		while (root.getChildNodes().size() > 0) {
-			ITNode child = root.getChildNodes().get(0);
-			extend(child);
-			save(child);
-			delete(child);
-		}
+                
+		
+                while (root.getChildNodes().size() > 0) {
+                    ITNode child = root.getChildNodes().get(0);
+                    if(!extend(child)){
+                       break; 
+                    }
+                    if(!save(child)){
+                        break;
+                    }
+                    delete(child);
+                }
+                
 
 		saveAllClosedItemsets();
 
@@ -132,8 +139,12 @@ public class AlgoCharm_Bitset {
 		}
 	}
 
-	private void extend(ITNode currNode) {
-		// loop over the brothers
+	private boolean extend(ITNode currNode) throws Exception {
+                endTimestamp = System.currentTimeMillis();
+		if(this.getExecTime() > Configuration.MAX_UPDATE_TIME){
+                    throw new Exception();
+                }
+                // loop over the brothers
 		int i = 0;
 		while (i < currNode.getParent().getChildNodes().size()) {
 
@@ -180,9 +191,12 @@ public class AlgoCharm_Bitset {
 		while (currNode.getChildNodes().size() > 0) {
 			ITNode child = currNode.getChildNodes().get(0);
 			extend(child);
-			save(child);
+			if(!save(child)){
+                            return false;
+                        }
 			delete(child);
 		}
+                return true;
 	}
 
 	private boolean containsAll(ITNode node1, ITNode node2) {
@@ -225,10 +239,14 @@ public class AlgoCharm_Bitset {
 		child.getParent().getChildNodes().remove(child);
 	}
 
-	private void save(ITNode node) {
+	private boolean save(ITNode node) {
 		if (!hash.containsSupersetOf(node.itemsetObject)) {
 			hash.put(node.itemsetObject);
+                        if(hash.count > Configuration.MAX_FCI_SET_COUNT){
+                            return false;
+                        }
 		}
+                return true;
 	}
 
 	private void sortChildren(ITNode node) {

@@ -42,7 +42,7 @@ public class PatternsMine extends AbstractLearner implements Observer {
             "The minimal number of changes in user model to perform next actualization of clusters", 1, 1,
             Integer.MAX_VALUE);
     
-    public IntOption numMinNumberOfMicroclustersUpdates = new IntOption("minNumOfMicroclustersUpdates", 'c',
+    public IntOption numMinNumberOfMicroclustersUpdates = new IntOption("minNumOfMicroclustersUpdates", 'm',
             "The minimal number of microcluster updates to perform next kmeans of microclusters", 1, 1,
             Integer.MAX_VALUE);
    
@@ -55,7 +55,7 @@ public class PatternsMine extends AbstractLearner implements Observer {
             "Size of the sliding window (in number of segments).", 10);
     
     public IntOption maxItemsetLengthOption = new IntOption(
-            "maxItemsetLength", 'm',
+            "maxItemsetLength", 'i',
             "Maximum length of frequent closed itemset to be considered.", -1);
     
     public IntOption numberOfGroupsOption = new IntOption(
@@ -87,8 +87,8 @@ public class PatternsMine extends AbstractLearner implements Observer {
     public PatternsMine(){
         super();
         this.clusterer = new WithKmeans();
-        this.clusterer.kOption.setValue(10);
-        this.clusterer.maxNumKernelsOption.setValue(50);
+        this.clusterer.kOption.setValue(numberOfGroupsOption.getValue());
+        this.clusterer.maxNumKernelsOption.setValue(100);
         this.clusterer.kernelRadiFactorOption.setValue(2);
         
     }
@@ -100,6 +100,10 @@ public class PatternsMine extends AbstractLearner implements Observer {
                 numberOfGroupsOption.getValue(), minSupportOption.getValue(),
                 relaxationRateOption.getValue(),fixedSegmentLengthOption.getValue());
         this.incMine.resetLearning();
+        this.clusterer =  new WithKmeans();
+        this.clusterer.kOption.setValue(numberOfGroupsOption.getValue());
+        this.clusterer.maxNumKernelsOption.setValue(100);
+        this.clusterer.kernelRadiFactorOption.setValue(2);
         this.clusterer.resetLearning();
     }
     
@@ -164,10 +168,12 @@ public class PatternsMine extends AbstractLearner implements Observer {
                 for(Cluster c : this.kmeansClustering.getClustering()){
                     SphereCluster cs = (SphereCluster) c; // kmeans produce sphere clusters
                     double prob = cs.getInclusionProbability(inst);
+                    double dist = cs.getCenterDistance(inst)/cs.getRadius();
                     if(prob > maxProb){
                         bestCluster = cs;
                         maxProb = prob;
                         um.setGroupid(bestCluster.getId());
+                        um.setDistance(dist);
                         sessionArray.set(0,um.getGroupid());
                     }
                 }
@@ -204,13 +210,13 @@ public class PatternsMine extends AbstractLearner implements Observer {
                 double lcsVal = ((double)LCS.computeLongestCommonSubset(items,window)) / ((double)window.size());
                 double support = 
                        ((double)fci.getApproximateSupport())/((double)this.fixedSegmentLengthOption.getValue());
-                double val = support*0.5 + lcsVal*0.5;
+                double val = support*0.1 + lcsVal;
                 mapFciWeight.put(fci, val);
             }
         }
         
-        // This next block performs the same with group fcis. 
-        // This can be commented out to test performance without group fcis.
+//         This next block performs the same with group fcis. 
+//         This can be commented out to test performance without group fcis.
         if(sessionArray.get(0) > -1){  // if group has some fci append it to list
             List<FCITable> fciTables = this.incMine.fciTablesGroups;
             FCITable fciGroup = fciTables.get((int) Math.round(sessionArray.get(0)));
@@ -219,13 +225,16 @@ public class PatternsMine extends AbstractLearner implements Observer {
                 SemiFCI fci = itG.next();
                 if(fci.size() > 1){
                     List<Integer> items = fci.getItems();
-                    double lcsVal = LCS.computeLongestCommonSubset(items,window);
-                    double support = fci.getApproximateSupport()/this.fixedSegmentLengthOption.getValue();
-                    double val = support*0.5 + lcsVal*0.5;
+                    double lcsVal = LCS.computeLongestCommonSubset(items,window)/((double)window.size());
+                    double support = (double)fci.getApproximateSupport()/this.fixedSegmentLengthOption.getValue();
+                    double val = 1.5*(support*0.1 + lcsVal);
                     mapFciWeight.put(fci, val);
                 }
             }
         }
+        
+        // another solution every time take best 2 patterns from group and from global
+        // prefer items that are both in global and group pattern.
         
         // all fcis found have to be sorted descending by its support and similarity.
         Map<SemiFCI, Double> sortedByValue = MapUtil.sortByValue(mapFciWeight);
@@ -305,11 +314,11 @@ public class PatternsMine extends AbstractLearner implements Observer {
         int uid = (int)inst.value(1);
         if(usermodels.containsKey(uid)){
             UserModel um = usermodels.get(uid);
-            Map<Integer,Integer> pageVisitsMap = um.getPageVisitsMap();
+            Map<Integer,Double> pageVisitsMap = um.getPageVisitsMap();
             for(int i = 2; i < inst.numValues(); i++){ // from i = 2 because first val is groupid and second uid
                 int idx = (int)inst.value(i);
                 if(pageVisitsMap.containsKey(idx)){
-                    int actVal = pageVisitsMap.get(idx);
+                    double actVal = pageVisitsMap.get(idx);
                     um.put(idx,actVal + 1);
                 }else{
                     um.put(idx, 1);
@@ -319,13 +328,13 @@ public class PatternsMine extends AbstractLearner implements Observer {
             return um;
         }else{
             UserModel um = new UserModel();
-            um.setGroupid((int)inst.value(0));
+            um.setGroupid(inst.value(0));
             um.setId((int)inst.value(1));
-            Map<Integer,Integer> pageVisitsMap = um.getPageVisitsMap();
+            Map<Integer,Double> pageVisitsMap = um.getPageVisitsMap();
             for(int i = 2; i < inst.numValues(); i++){ // from i = 2 because first val is groupid and second uid
                 int idx = (int)inst.value(i);
                 if(pageVisitsMap.containsKey(idx)){
-                    int actVal = pageVisitsMap.get(idx);
+                    double actVal = pageVisitsMap.get(idx);
                     um.put(idx,actVal + 1);
                 }else{
                     um.put(idx, 1);

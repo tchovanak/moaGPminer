@@ -29,6 +29,8 @@ import com.github.javacliparser.IntOption;
 import com.github.javacliparser.MultiChoiceOption;
 import com.yahoo.labs.samoa.instances.Prediction;
 import com.yahoo.labs.samoa.instances.Instance;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import moa.core.InstanceExample;
 
 public class IncMine extends AbstractLearner implements Observer {
@@ -164,39 +166,43 @@ public class IncMine extends AbstractLearner implements Observer {
 
         this.minsup = Utilities.getIncMineMinSupportVector(sigma,r,windowSize,lastSegmentLenght);
         
-        //for each FCI in the last segment in size ascending order
-        for(SemiFCI fci:this.swm.getFCI()) {
-            
-            SemiFCIid fciId = this.fciTable.select(fci.getItems());
-            boolean newfci = false;
-            
-            if(fciId.isValid()) {
-                //fci is already in the FCITable
-                this.fciTable.getFCI(fciId).pushSupport(fci.currentSupport());
-                computeK(fciId, 0);                
-            }else{
-                //fci is not in the FCITable yet
-                newfci = true;
-                //set semiFCI support to support of his SFS (last segment excluded)
-                SemiFCIid sfsId = this.fciTable.selectSFS(fci, false);
+        try {
+            //for each FCI in the last segment in size ascending order
+            for(SemiFCI fci:this.swm.getFCI()) {
                 
-                if(sfsId.isValid()) {
-                    int[] fciSupVector = fci.getSupports();
-                    int[] sfsSupVector = this.fciTable.getFCI(sfsId).getSupports(); 
-                    //note: the SFS has not been updated yet! so his old support goes from index 0 to length-2
-                    if(fciSupVector.length > 1){
-                        System.arraycopy(sfsSupVector, 0, fciSupVector, 1, fciSupVector.length - 2);
-                        fci.setSupports(fciSupVector);
+                SemiFCIid fciId = this.fciTable.select(fci.getItems());
+                boolean newfci = false;
+                
+                if(fciId.isValid()) {
+                    //fci is already in the FCITable
+                    this.fciTable.getFCI(fciId).pushSupport(fci.currentSupport());
+                    computeK(fciId, 0);
+                }else{
+                    //fci is not in the FCITable yet
+                    newfci = true;
+                    //set semiFCI support to support of his SFS (last segment excluded)
+                    SemiFCIid sfsId = this.fciTable.selectSFS(fci, false);
+                    
+                    if(sfsId.isValid()) {
+                        int[] fciSupVector = fci.getSupports();
+                        int[] sfsSupVector = this.fciTable.getFCI(sfsId).getSupports();
+                        //note: the SFS has not been updated yet! so his old support goes from index 0 to length-2
+                        if(fciSupVector.length > 1){
+                            System.arraycopy(sfsSupVector, 0, fciSupVector, 1, fciSupVector.length - 2);
+                            fci.setSupports(fciSupVector);
+                        }
                     }
+                    //add a new entry to the table and update the inverted index
+                    fciId = fciTable.addSemiFCI(fci);
+                    computeK(fciId, 0);
                 }
-                //add a new entry to the table and update the inverted index
-                fciId = fciTable.addSemiFCI(fci);
-                computeK(fciId, 0);
-            }
-            
-            if(fci.size() > 1)
-                enumerateSubsets(new Subset(fci.getItems(),0,false), new ArrayList<Integer>(), fci.getSupports(), fciId, newfci);
                 
+                if(fci.size() > 1)
+                    enumerateSubsets(new Subset(fci.getItems(),0,false), new ArrayList<Integer>(), fci.getSupports(), fciId, newfci);
+                
+            }
+        } catch (Exception ex) {
+            Logger.getLogger(IncMine.class.getName()).log(Level.SEVERE, null, ex);
         }
         
         this.fciTable.clearNewItemsetsTable();

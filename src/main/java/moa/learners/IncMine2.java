@@ -26,6 +26,9 @@ import moa.MOAObject;
 import moa.core.*;
 import com.yahoo.labs.samoa.instances.Prediction;
 import com.yahoo.labs.samoa.instances.Instance;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import moa.utils.Configuration;
 
 
 /*
@@ -36,6 +39,14 @@ public class IncMine2 extends AbstractLearner implements Observer {
     
     private static final long serialVersionUID = 1L;
 
+    IncMine2(int value, int value0, int value1, double value2, double value3, int value4) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    void setRelaxationRate(double d) {
+        this.r = d;
+    }
+    
     private class Subset {
         protected List<Integer> itemset;
         protected int startIndex;
@@ -46,7 +57,6 @@ public class IncMine2 extends AbstractLearner implements Observer {
             this.startIndex = startIndex;
             this.skipSubsetsNotInL = skipSubsetsNotInL;
         }
-
     }
     
     private int windowSizeOption;
@@ -55,16 +65,21 @@ public class IncMine2 extends AbstractLearner implements Observer {
     private double minSupportOption;
     private double relaxationRateOption;
     private int fixedSegmentLengthOption;
+    private int groupFixedSegmentLengthOption;
+
     
     public IncMine2(int windowSizeOption,int maxItemsetLengthOption,
             int numberOfGroupsOption, double minSupportOption,
-            double relaxationRateOption, int fixedSegmentLengthOption){
+            double relaxationRateOption, int fixedSegmentLengthOption, 
+            int groupFixedSegmentLengthOption){
         this.windowSizeOption = windowSizeOption;
         this.maxItemsetLengthOption = maxItemsetLengthOption;
         this.numberOfGroupsOption = numberOfGroupsOption; 
         this.minSupportOption = minSupportOption;
         this.relaxationRateOption = relaxationRateOption;
         this.fixedSegmentLengthOption = fixedSegmentLengthOption;
+        this.groupFixedSegmentLengthOption = groupFixedSegmentLengthOption;
+
     }
     
     public static int windowSize;
@@ -109,9 +124,11 @@ public class IncMine2 extends AbstractLearner implements Observer {
         this.swmGlobal.addObserver(this);  
         this.swmGroups = new ArrayList<SlidingWindowManager>();
         
+        double groupMinSupport = min_sup;
         // prepares sliding window for each group
         for(int i = 0; i < this.numberOfGroupsOption; i++){
-            this.swmGroups.add(i, new FixedLengthWindowManager(min_sup, this.maxItemsetLengthOption, this.fixedSegmentLengthOption));
+            this.swmGroups.add(i, new FixedLengthWindowManager(groupMinSupport, 
+                    this.maxItemsetLengthOption, this.groupFixedSegmentLengthOption ));
             this.swmGroups.get(i).deleteObservers();
             this.swmGroups.get(i).addObserver(this);        
         }
@@ -126,13 +143,15 @@ public class IncMine2 extends AbstractLearner implements Observer {
     @Override
     public void trainOnInstance(Example e) {
         Instance inst = (Instance)e.getData();
+        if(inst.numValues() <= 1){
+            return;
+        }
         int groupid = (int)inst.value(0);// on index 0 there should be group id prepended before session data
         if(groupid > -1){
             this.swmGroups.get(groupid).addInstance(inst); 
         }else{
             this.swmGlobal.addInstance(inst);
         }
-        
         
     }
 
@@ -189,13 +208,26 @@ public class IncMine2 extends AbstractLearner implements Observer {
 
         this.minsup = Utilities.getIncMineMinSupportVector(sigma,r,windowSize,lastSegmentLenght);
         List<SemiFCI> semiFCIs = null;
-        if(groupid == -1){
-            semiFCIs = this.swmGlobal.getFCI();
-        }else{
-            semiFCIs = this.swmGroups.get(groupid).getFCI();
+        
+        try {
+            if(groupid == -1){
+                semiFCIs = this.swmGlobal.getFCI();
+            }else{
+                semiFCIs = this.swmGroups.get(groupid).getFCI();
+            }
+        } catch (Exception ex) {
+            Logger.getLogger(IncMine2.class.getName()).log(Level.SEVERE, null, ex);
+            return;
         }
         //for each FCI in the last segment in size ascending order
         for(SemiFCI fci: semiFCIs) {
+            if(this.getUpdateTime()/1e6 > Configuration.MAX_UPDATE_TIME){
+                System.out.println("OUT OF TIME");
+                return;
+            }
+            if(fci.getItems().size() == 1){
+                continue;
+            }
             SemiFCIid fciId = fciTable.select(fci.getItems());
             boolean newfci = false;
             
@@ -235,7 +267,11 @@ public class IncMine2 extends AbstractLearner implements Observer {
         fciTable.clearNewItemsetsTable();
         
         //iterate in size-descending order over the entire FCITable to remove unfrequent semiFCIs
-        for(Iterator<SemiFCI> iter =  fciTable.iterator(); iter.hasNext(); ) { 
+        for(Iterator<SemiFCI> iter =  fciTable.iterator(); iter.hasNext(); ) {
+            if(this.getUpdateTime()/1e6 > Configuration.MAX_UPDATE_TIME){
+                System.out.println("OUT OF TIME");
+                return;
+            }
             SemiFCI s = iter.next();
             if(!s.isUpdated()) {
                 s.pushSupport(0);
@@ -255,7 +291,9 @@ public class IncMine2 extends AbstractLearner implements Observer {
 
         }       
                 
-        this.endUpdateTime = TimingUtils.getNanoCPUTimeOfCurrentThread();
+        
+        double ms = this.getUpdateTime()/1e6;
+       
         System.out.println("Update done in " + this.getUpdateTime()/1e6 + " ms.");
         System.out.println(fciTable.size() + " SemiFCIs actually stored\n");
         
@@ -388,6 +426,7 @@ public class IncMine2 extends AbstractLearner implements Observer {
     }
     
     public long getUpdateTime(){
+        this.endUpdateTime = TimingUtils.getNanoCPUTimeOfCurrentThread();
         return this.endUpdateTime - this.startUpadateTime;
     }
     

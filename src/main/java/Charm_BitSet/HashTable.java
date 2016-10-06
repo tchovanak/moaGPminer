@@ -28,6 +28,7 @@ import java.util.List;
 public class HashTable {
 	
 	int size;
+        int count = 0;
 	List<Itemset>[] table;
 	
 	public HashTable(int size){
@@ -50,6 +51,7 @@ public class HashTable {
 		return false;
 	}
 	public void put(Itemset itemsetObject) {
+                this.count++;
 		int hashcode = hashCode(itemsetObject);
 		if(table[hashcode] ==  null){
 			table[hashcode] = new ArrayList<Itemset>();
