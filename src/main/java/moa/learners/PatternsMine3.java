@@ -238,7 +238,7 @@ public class PatternsMine3 extends AbstractLearner implements Observer {
         // how to get all fcis found ?
         FCITable fciGlobal = this.incMine.fciTableGlobal;
         Iterator<SemiFCI> it = fciGlobal.iterator();
-        Map<SemiFCI, FciValue> mapFciWeight = new HashMap<>();
+        List<FciValue> mapFciWeight = new LinkedList<FciValue>();
         
         while(it.hasNext()){
             SemiFCI fci = it.next();
@@ -255,8 +255,9 @@ public class PatternsMine3 extends AbstractLearner implements Observer {
                      continue;
                 }
                 FciValue fciVal = new FciValue();
+                fciVal.setFci(fci);
                 fciVal.computeValue(lcsVal, support);
-                mapFciWeight.put(fci, fciVal);
+                mapFciWeight.add(fciVal);
             }
         }
         
@@ -275,7 +276,7 @@ public class PatternsMine3 extends AbstractLearner implements Observer {
                         if(lcsVal == 0.0){
                             continue;
                         }
-                        double support = (double)fci.getApproximateSupport()/(double)this.fixedSegmentLengthOption.getValue();
+                        double support = (double)fci.getApproximateSupport()/(double)this.groupFixedSegmentLengthOption.getValue();
             //                    int countUsers = GroupCounter.getCountOfAllUsers();
             //                    int countGroup = GroupCounter.groupscounters[sessionArray.get(0).intValue()];
             //                    double ratio = (double)countGroup/((double)countUsers/(GroupCounter.groupscounters.length-1));
@@ -283,8 +284,10 @@ public class PatternsMine3 extends AbstractLearner implements Observer {
                             continue;
                         }
                         FciValue fciVal = new FciValue();
+                        fciVal.setGroupFciFlag(true);
+                        fciVal.setFci(fci);
                         fciVal.computeValue(lcsVal, support);
-                        mapFciWeight.put(fci, fciVal);
+                        mapFciWeight.add(fciVal);
                     }
                 }
             }
@@ -295,31 +298,42 @@ public class PatternsMine3 extends AbstractLearner implements Observer {
         // prefer items that are both in global and group pattern.
         
         // all fcis found have to be sorted descending by its support and similarity.
-        Map<SemiFCI, FciValue> sortedByValue = MapUtil.sortByValue(mapFciWeight);
-        List<Integer> recs = new ArrayList<>(); 
-        for(Map.Entry<SemiFCI, FciValue> entry : sortedByValue.entrySet()) {
-            SemiFCI key = entry.getKey();
+        //Map<SemiFCI, FciValue> sortedByValue = MapUtil.sortByValue(mapFciWeight);
+        Collections.sort(mapFciWeight);
+        List<Integer> recsFromGroup = new ArrayList<>(); 
+        List<Integer> recsFromGlobal = new ArrayList<>();
+        int cntAll = 0;
+        for(FciValue fciVal : mapFciWeight) {
+            SemiFCI key = fciVal.getFci();
             List<Integer> items = key.getItems();
             Iterator<Integer> itItems = items.iterator();
             while(itItems.hasNext()){
                 Integer item =  itItems.next();
-                if(!window.contains(item) && !recs.contains(item)){  // create unique recommendations
-                    recs.add(item);
-                    if(recs.size() >= numberOfRecommendedItems){
+                if(!window.contains(item) && !recsFromGroup.contains(item) 
+                        && !recsFromGlobal.contains(item)){  // create unique recommendations
+                    if(fciVal.getGroupFciFlag()){
+                        recsFromGroup.add(item);
+                    }else{
+                        recsFromGlobal.add(item);
+                    }
+                    cntAll++;
+                    if(cntAll >= numberOfRecommendedItems){
                         break;
                     }
                 }
             }
-            if(recs.size() >= numberOfRecommendedItems){
+            if(cntAll >= numberOfRecommendedItems){
                  break;
             }
         }
         
-        double lcsVal = LCS.computeLongestCommonSubset(outOfWindow, recs);
+        double lcsValFromGlobal = LCS.computeLongestCommonSubset(outOfWindow, recsFromGlobal);
+        double lcsValFromGroup = LCS.computeLongestCommonSubset(outOfWindow, recsFromGroup);
         // lcsVal contains number of items that are same in outOfWindow and recs
-        double[] lcsValues = new double[2];
-        lcsValues[0] = lcsVal; // in future the window will slide over actual session. 
-        lcsValues[1] = recs.size();   // Now only one set of recommended items is created
+        double[] lcsValues = new double[3];
+        lcsValues[0] = lcsValFromGlobal; // in future the window will slide over actual session. 
+        lcsValues[1] = lcsValFromGroup; 
+        lcsValues[2] = cntAll;   // Now only one set of recommended items is created
         return lcsValues;
         
     }

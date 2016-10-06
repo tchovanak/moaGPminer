@@ -184,6 +184,10 @@ public class GridSearchEvaluator {
             writer.append(',');
             writer.append(((Double)results[7]).toString());
             writer.append(',');
+            writer.append(((Double)results[8]).toString());
+            writer.append(',');
+            writer.append(((Double)results[9]).toString());
+            writer.append(',');
             writer.append(((Double)transsec).toString());
             writer.append(',');
             writer.append(((Double)tp).toString());
@@ -334,6 +338,10 @@ public class GridSearchEvaluator {
                 writer.append("real recommended count");
                 writer.append(',');
                 writer.append("precision with real recommended count");
+                writer.append(',');
+                writer.append("num hits from global patterns");  // number of hits from global
+                writer.append(',');
+                writer.append("num hits from group patterns");  // number of hits from group
                 writer.append(',');
                 writer.append("number of succesfully recommended sessions");
                 writer.append(',');

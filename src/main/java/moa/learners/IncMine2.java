@@ -219,8 +219,33 @@ public class IncMine2 extends AbstractLearner implements Observer {
             Logger.getLogger(IncMine2.class.getName()).log(Level.SEVERE, null, ex);
             return;
         }
+        
+//        //iterate in size-descending order over the entire FCITable to remove unfrequent semiFCIs
+//        for(Iterator<SemiFCI> iter =  fciTable.iterator(); iter.hasNext(); ) {
+//            SemiFCI s = iter.next();
+//            if(!s.isUpdated()) {
+//                s.pushSupport(0);
+//                s.setUpdated(false);
+//                int k = computeK(s.getId(), 0, fciTable);
+//                if (k == -1){
+//                    fciTable.removeSemiFCI(s.getId(), iter);
+//                }
+//                else{
+//                    SemiFCIid sfsId = fciTable.selectSFS(s, true);
+//                    if(sfsId.isValid())
+//                        fciTable.removeSemiFCI(s.getId(), iter);
+//                }
+//            }else{
+//                s.setUpdated(false);
+//            }
+//
+//        }  
+
         //for each FCI in the last segment in size ascending order
         for(SemiFCI fci: semiFCIs) {
+            if(fciTable.size() > Configuration.MAX_SEMI_FCI_SET_COUNT){
+                break;
+            }
             if(this.getUpdateTime()/1e6 > Configuration.MAX_UPDATE_TIME){
                 System.out.println("OUT OF TIME");
                 return;
@@ -268,10 +293,6 @@ public class IncMine2 extends AbstractLearner implements Observer {
         
         //iterate in size-descending order over the entire FCITable to remove unfrequent semiFCIs
         for(Iterator<SemiFCI> iter =  fciTable.iterator(); iter.hasNext(); ) {
-            if(this.getUpdateTime()/1e6 > Configuration.MAX_UPDATE_TIME){
-                System.out.println("OUT OF TIME");
-                return;
-            }
             SemiFCI s = iter.next();
             if(!s.isUpdated()) {
                 s.pushSupport(0);

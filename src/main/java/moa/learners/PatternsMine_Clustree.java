@@ -15,6 +15,7 @@ import moa.cluster.Cluster;
 import moa.cluster.SphereCluster;
 import com.yahoo.labs.samoa.instances.SparseInstance;
 import java.util.concurrent.ConcurrentHashMap;
+import moa.clusterers.clustree.ClusTree;
 import moa.utils.LCS;
 import moa.utils.MapUtil;
 
@@ -28,7 +29,7 @@ public class PatternsMine_Clustree extends AbstractLearner implements Observer {
     private static final long serialVersionUID = 1L;
     
     private IncMine2 incMine;
-    private WithKmeans clusterer = new WithKmeans();
+    private ClusTree clusterer = new ClusTree();
     private Map<Integer,UserModel> usermodels = new ConcurrentHashMap<Integer, UserModel>();
     private int microclusteringUpdatesCounter = 0;
     
@@ -68,6 +69,10 @@ public class PatternsMine_Clustree extends AbstractLearner implements Observer {
             "fixedSegmentLength", 'l',
             "Fixed Segment Length.", 1000);
     
+    public IntOption groupFixedSegmentLengthOption = new IntOption(
+            "groupFixedSegmentLength", 'l',
+            "Group Fixed Segment Length.", 200);
+    
     public IntOption numberOfRecommendedItemsOption = new IntOption(
             "numberOfRecommendedItems", 'n',
             "Number of item recommended.", 5);
@@ -85,19 +90,19 @@ public class PatternsMine_Clustree extends AbstractLearner implements Observer {
      
     public PatternsMine_Clustree(){
         super();
-        this.clusterer = new WithKmeans();
-        this.clusterer.kOption.setValue(numberOfGroupsOption.getValue());
-        this.clusterer.maxNumKernelsOption.setValue(100);
-        this.clusterer.kernelRadiFactorOption.setValue(2);
+        this.clusterer = new ClusTree();
+//        this.clusterer.kOption.setValue(numberOfGroupsOption.getValue());
+//        this.clusterer.maxNumKernelsOption.setValue(100);
+//        this.clusterer.kernelRadiFactorOption.setValue(2);
     }
 
     public PatternsMine_Clustree(boolean grouping) {
         super();
         this.grouping = grouping;
-        this.clusterer = new WithKmeans();
-        this.clusterer.kOption.setValue(numberOfGroupsOption.getValue());
-        this.clusterer.maxNumKernelsOption.setValue(100);
-        this.clusterer.kernelRadiFactorOption.setValue(2);
+        this.clusterer = new ClusTree();
+//        this.clusterer.kOption.setValue(numberOfGroupsOption.getValue());
+//        this.clusterer.maxNumKernelsOption.setValue(100);
+//        this.clusterer.kernelRadiFactorOption.setValue(2);
     }
     
     @Override
@@ -106,15 +111,16 @@ public class PatternsMine_Clustree extends AbstractLearner implements Observer {
         for(int i = 0; i < GroupCounter.groupscounters.length; i++){
             GroupCounter.groupscounters[i] = 0;
         }
-        this.incMine = new IncMine2( windowSizeOption.getValue(), maxItemsetLengthOption.getValue(),
+        this.incMine = new IncMine2(windowSizeOption.getValue(), maxItemsetLengthOption.getValue(),
                 numberOfGroupsOption.getValue(), minSupportOption.getValue(),
-                relaxationRateOption.getValue(),fixedSegmentLengthOption.getValue());
+                relaxationRateOption.getValue(),fixedSegmentLengthOption.getValue(), 
+                groupFixedSegmentLengthOption.getValue());
         this.incMine.resetLearning();
-        this.clusterer =  new WithKmeans();
-        this.clusterer.kOption.setValue(numberOfGroupsOption.getValue());
-        this.clusterer.maxNumKernelsOption.setValue(100);
-        this.clusterer.kernelRadiFactorOption.setValue(2);
-        this.clusterer.resetLearning();
+        this.clusterer =  new ClusTree();
+//        this.clusterer.kOption.setValue(numberOfGroupsOption.getValue());
+//        this.clusterer.maxNumKernelsOption.setValue(100);
+//        this.clusterer.kernelRadiFactorOption.setValue(2);
+        this.clusterer.resetLearningImpl();
     }
     
     @Override
@@ -138,7 +144,7 @@ public class PatternsMine_Clustree extends AbstractLearner implements Observer {
                             this.kmeansClustering = Clustream.kMeans(
                                     this.numberOfGroupsOption.getValue(),
                                     clusters);
-                            //updateGroupidsInUserModels();
+                            updateGroupidsInUserModels();
                         }
                     }
                 }
@@ -175,23 +181,33 @@ public class PatternsMine_Clustree extends AbstractLearner implements Observer {
             sessionArray.add(i,session.value(i)); 
         }
         
+//        if(grouping){
+//            if(kmeansClustering != null){  // if already clustering was performed
+//                UserModel um = getUserModelFromInstance(session);
+//                if(um != null){
+//                    Instance inst = um.toInstance(numPages.getValue());
+//                    Cluster bestCluster = null;
+//                    double minDist = 1.0;
+//                    for(Cluster c : this.kmeansClustering.getClustering()){
+//                        SphereCluster cs = (SphereCluster) c; // kmeans produce sphere clusters
+//                        double prob = cs.getInclusionProbability(inst);
+//                        double dist = cs.getCenterDistance(inst)/cs.getRadius();
+//                        if(prob == 1.0 && dist < minDist){
+//                            bestCluster = cs;
+//                            minDist = dist;
+//                            um.setGroupid(bestCluster.getId());
+//                            um.setDistance(dist); 
+//                            sessionArray.set(0,um.getGroupid());
+//                        }
+//                    }
+//                   
+//                }       
+//            }
+//        }
+        
         if(grouping){
             if(kmeansClustering != null){  // if already clustering was performed
                 UserModel um = getUserModelFromInstance(session);
-                Instance inst = um.toInstance(numPages.getValue());
-                Cluster bestCluster = null;
-                double minDist = 1.0;
-                for(Cluster c : this.kmeansClustering.getClustering()){
-                    SphereCluster cs = (SphereCluster) c; // kmeans produce sphere clusters
-                    double prob = cs.getInclusionProbability(inst);
-                    double dist = cs.getCenterDistance(inst)/cs.getRadius();
-                    if(prob == 1.0 && dist < minDist){
-                        bestCluster = cs;
-                        minDist = dist;
-                        um.setGroupid(bestCluster.getId());
-                        um.setDistance(dist);
-                    }
-                }
                 if(um != null){
                     sessionArray.set(0,um.getGroupid());
                 }else{
@@ -264,7 +280,9 @@ public class PatternsMine_Clustree extends AbstractLearner implements Observer {
             //                    int countUsers = GroupCounter.getCountOfAllUsers();
             //                    int countGroup = GroupCounter.groupscounters[sessionArray.get(0).intValue()];
             //                    double ratio = (double)countGroup/((double)countUsers/(GroupCounter.groupscounters.length-1));
-
+                        if(support < this.minSupportOption.getValue()){
+                            continue;
+                        }
                         FciValue fciVal = new FciValue();
                         fciVal.computeValue(lcsVal, support);
                         mapFciWeight.put(fci, fciVal);
@@ -331,7 +349,7 @@ public class PatternsMine_Clustree extends AbstractLearner implements Observer {
                 }
             }
             um.aging();
-            if(um.getPageVisitsMap().size() < 5){
+            if(um.getPageVisitsMap().size() < 2){
                 usermodels.remove((Integer) pair.getKey());
             }
         }

@@ -43,6 +43,8 @@ public class PatternsRecommendationEvaluator extends AbstractMOAObject{
     private int numberOfRecommendedSessions = 0;
     private int numberOfSuccessfullyRecommendedSessions = 0;
     private int realRecommendedItems = 0;
+    private int allHitsFromGlobal = 0;
+    private int allHitsFromGroup = 0;
     private int windowSize = 1000;
     private double sumWindow = 0.0;
     private FileWriter writer = null;
@@ -50,6 +52,33 @@ public class PatternsRecommendationEvaluator extends AbstractMOAObject{
     public PatternsRecommendationEvaluator(String outputFile)  {
         try {
             this.writer = new FileWriter(outputFile);
+            writer.append("transaction id");  // transaction id
+            writer.append(',');
+            writer.append("transaction length");  // transaction length
+            writer.append(',');
+            writer.append("test length");  // test length
+            writer.append(',');
+            writer.append("num really recommended items");  // number of really recommended items
+            writer.append(',');
+            writer.append("num hits from global patterns");  // number of hits from global
+            writer.append(',');
+            writer.append("num hits from group patterns");  // number of hits from group
+            writer.append(',');
+            writer.append("precision 1");   // summary precision 
+            writer.append(',');
+            writer.append("precision 2");   // summary precision 
+            writer.append(',');
+            writer.append("moving average precision 1");   // moving average
+            writer.append(',');
+            writer.append("summary LCS hits"); // summary LCS
+            writer.append(',');
+            writer.append("all items");
+            writer.append(',');
+            writer.append("real recommended items");
+            writer.append(',');
+            writer.append("speed transsec");
+            writer.append('\n');
+        
         } catch (IOException ex) {
             Logger.getLogger(PatternsRecommendationEvaluator.class.getName()).log(Level.SEVERE, null, ex);
         }
@@ -70,33 +99,35 @@ public class PatternsRecommendationEvaluator extends AbstractMOAObject{
     
     public void addResult(Example instance, double[] recommendations, int windowSize, 
             int numberOfRecommendedItems, double transsec, Integer counter) {
-        double lcsVal = 0;
+        double lcsValFromGlobal = 0;
+        double lcsValFromGroup = 0;
         double numRecommendedItems = 0;
         Instance session = (Instance)instance.getData();
         Integer sessionLength = (Integer)(session.numValues() - 2);
         allItems += numberOfRecommendedItems;
         if(recommendations != null){
-            lcsVal = recommendations[0];
-            numRecommendedItems = recommendations[1];
+            lcsValFromGlobal = recommendations[0];
+            lcsValFromGroup = recommendations[1];
+            numRecommendedItems = recommendations[2];
             if(numRecommendedItems > 0){
-                this.sumLCS += lcsVal;
+                this.sumLCS += (lcsValFromGroup + lcsValFromGlobal);
+                System.out.println(this.sumLCS);
+                this.allHitsFromGlobal += lcsValFromGlobal;
+                this.allHitsFromGroup += lcsValFromGroup;
                 realRecommendedItems += numRecommendedItems;
                 this.numberOfRecommendedSessions += 1;
-                double prec = lcsVal/numberOfRecommendedItems;
+                double prec = (lcsValFromGroup + lcsValFromGlobal)/numberOfRecommendedItems;
                 if(prec > 0){
                     this.numberOfSuccessfullyRecommendedSessions += 1;
                 }
                 addNum(prec);
             }
         }
-        Double restSessionElements = sessionLength - windowSize - lcsVal;
+        Double restSessionElements = sessionLength - windowSize - (lcsValFromGroup + lcsValFromGlobal);
         Double prec1 = (((double)sumLCS)/((double)allItems));
         Double prec2 = (((double)sumLCS)/((double)realRecommendedItems));
         Double ma = getAvg();
-        //System.out.println("TP : " + sumLCS);
-        //System.out.println("ALL : " + allItems);
-        //System.out.println("PRECISION : " + prec);
-        //System.out.println("MOVING AVERAGE: " + getAvg());
+       
         try {
             writer.append(counter.toString());  // transaction id
             writer.append(',');
@@ -106,7 +137,9 @@ public class PatternsRecommendationEvaluator extends AbstractMOAObject{
             writer.append(',');
             writer.append(((Double)numRecommendedItems).toString());  // number of really recommended items
             writer.append(',');
-            writer.append(((Double)lcsVal).toString());  // number of hits 
+            writer.append(((Double)lcsValFromGlobal).toString());  // number of hits from global
+            writer.append(',');
+            writer.append(((Double)lcsValFromGroup).toString());  // number of hits from group
             writer.append(',');
             writer.append(prec1.toString());   // summary precision 
             writer.append(',');
@@ -137,11 +170,13 @@ public class PatternsRecommendationEvaluator extends AbstractMOAObject{
         Double prec = (((double)sumLCS)/((double)allItems));
         Double prec2 = (((double)sumLCS)/((double)realRecommendedItems));
         Double ma = getAvg();
-        double[] results = new double[8];
+        double[] results = new double[10];
         results[0] = prec; results[1] = ma; results[2] = sumLCS; results[3] = allItems; results[4] = realRecommendedItems;
         results[5] = prec2;
-        results[6] = this.numberOfSuccessfullyRecommendedSessions;
-        results[7] = this.numberOfRecommendedSessions;
+        results[6] = this.allHitsFromGlobal;
+        results[7] = this.allHitsFromGroup;
+        results[8] = this.numberOfSuccessfullyRecommendedSessions;
+        results[9] = this.numberOfRecommendedSessions;
         return results;
     }
 

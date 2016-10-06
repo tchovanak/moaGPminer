@@ -4,7 +4,7 @@
  * and open the template in the editor.
  */
 package moa.learners;
-
+import moa.core.SemiFCI;
 /**
  *
  * @author Tomas
@@ -13,7 +13,17 @@ class FciValue implements Comparable {
     private double lcsVal = 0.0;
     private double support = 0.0;
     private double value = 0.0;
-    
+    public boolean groupFlag = false;
+    private SemiFCI fci = null;
+
+    public SemiFCI getFci() {
+        return fci;
+    }
+
+    public void setFci(SemiFCI fci) {
+        this.fci = fci;
+    }
+            
     public double getLcsVal() {
         return lcsVal;
     }
@@ -63,19 +73,25 @@ class FciValue implements Comparable {
        // 2nd option
        FciValue other = (FciValue)o;
        if(this.lcsVal < other.getLcsVal()){
-           return -1;
-       }else if(this.lcsVal == other.getLcsVal()){
-           if(this.support < other.getSupport()){
-               return -1;
-           }else if (this.support == other.getSupport()){
-               return 0;
-           }
-           else{
-               return 1;
-           }
-       }else{
            return 1;
+       }else if(this.lcsVal == other.getLcsVal()){
+//           if(!this.groupFlag && other.groupFlag){ // prefer not group patterns
+//                return -1;
+//           }else if(this.groupFlag && !other.groupFlag){
+//               return 1;
+//           }else{
+               if(this.support < other.getSupport()){
+                    return 1;
+                }else if (this.support == other.getSupport()){
+                    return 0;
+                }else{
+                    return -1;
+                }
+//           } 
+       }else{
+           return -1;
        }
+       
        
 //       if(this.value < other.getValue()){
 //           return -1;
@@ -85,7 +101,16 @@ class FciValue implements Comparable {
 //           return 0;
 //       }
     }
+
+    public void setGroupFciFlag(boolean b) {
+        this.groupFlag = b;
+    }
     
+    public boolean getGroupFciFlag(){
+        return this.groupFlag;
+    }
+    
+
     
     
 }
