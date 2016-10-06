@@ -23,7 +23,7 @@ import moa.utils.MapUtil;
     mining of global and group frequent itemsets.
     
 */
-public class PatternsMine3_0 extends AbstractLearner implements Observer {
+public class PatternsMine_Clustree extends AbstractLearner implements Observer {
 
     private static final long serialVersionUID = 1L;
     
@@ -83,7 +83,7 @@ public class PatternsMine3_0 extends AbstractLearner implements Observer {
     private Clustering kmeansClustering;
     private boolean grouping = true;
      
-    public PatternsMine3_0(){
+    public PatternsMine_Clustree(){
         super();
         this.clusterer = new WithKmeans();
         this.clusterer.kOption.setValue(numberOfGroupsOption.getValue());
@@ -91,7 +91,7 @@ public class PatternsMine3_0 extends AbstractLearner implements Observer {
         this.clusterer.kernelRadiFactorOption.setValue(2);
     }
 
-    public PatternsMine3_0(boolean grouping) {
+    public PatternsMine_Clustree(boolean grouping) {
         super();
         this.grouping = grouping;
         this.clusterer = new WithKmeans();
