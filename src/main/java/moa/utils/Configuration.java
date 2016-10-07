@@ -11,6 +11,6 @@ package moa.utils;
  */
 public class Configuration {
     public static double MAX_UPDATE_TIME = 20000; // in ms
-    public static int MAX_FCI_SET_COUNT = 50000;
-    public static int MAX_SEMI_FCI_SET_COUNT = 50000;
+    public static double MAX_FCI_SET_COUNT = 50000;
+    public static double MAX_SEMI_FCI_SET_COUNT = 50000;
 }

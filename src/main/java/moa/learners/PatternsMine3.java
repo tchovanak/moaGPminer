@@ -16,7 +16,6 @@ import moa.cluster.SphereCluster;
 import com.yahoo.labs.samoa.instances.SparseInstance;
 import java.util.concurrent.ConcurrentHashMap;
 import moa.utils.LCS;
-import moa.utils.MapUtil;
 
 /*
     This class defines new AbstractLearner that performs clustering of users to groups and 

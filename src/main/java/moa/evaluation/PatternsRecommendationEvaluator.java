@@ -111,7 +111,6 @@ public class PatternsRecommendationEvaluator extends AbstractMOAObject{
             numRecommendedItems = recommendations[2];
             if(numRecommendedItems > 0){
                 this.sumLCS += (lcsValFromGroup + lcsValFromGlobal);
-                System.out.println(this.sumLCS);
                 this.allHitsFromGlobal += lcsValFromGlobal;
                 this.allHitsFromGroup += lcsValFromGroup;
                 realRecommendedItems += numRecommendedItems;
@@ -133,7 +132,7 @@ public class PatternsRecommendationEvaluator extends AbstractMOAObject{
             writer.append(',');
             writer.append(sessionLength.toString());  // transaction length
             writer.append(',');
-            writer.append(((Integer)(windowSize)).toString());  // test length
+            writer.append(((Integer)(sessionLength - windowSize)).toString());  // test length
             writer.append(',');
             writer.append(((Double)numRecommendedItems).toString());  // number of really recommended items
             writer.append(',');

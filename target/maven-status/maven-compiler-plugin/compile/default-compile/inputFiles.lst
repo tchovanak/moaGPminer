@@ -20,6 +20,7 @@ G:\workspace_GPMiner\moa-gpmine\MoaGPminer\src\main\java\moa\cluster\Clustering.
 G:\workspace_GPMiner\moa-gpmine\MoaGPminer\src\main\java\moa\learners\PatternsMine3.java
 G:\workspace_GPMiner\moa-gpmine\MoaGPminer\src\main\java\moa\clusterers\clustream\WithKmeans.java
 G:\workspace_GPMiner\moa-gpmine\MoaGPminer\src\main\java\moa\learners\UserModel.java
+G:\workspace_GPMiner\moa-gpmine\MoaGPminer\src\main\java\moa\learners\PatternsMine_Clustree.java
 G:\workspace_GPMiner\moa-gpmine\MoaGPminer\src\main\java\moa\learners\PatternsMine2.java
 G:\workspace_GPMiner\moa-gpmine\MoaGPminer\src\main\java\moa\clusterers\clustream\ClustreamKernel.java
 G:\workspace_GPMiner\moa-gpmine\MoaGPminer\src\main\java\moa\core\ObserverParamWrapper.java
@@ -31,8 +32,8 @@ G:\workspace_GPMiner\moa-gpmine\MoaGPminer\src\main\java\moa\learners\Main.java
 G:\workspace_GPMiner\moa-gpmine\MoaGPminer\src\main\java\moa\learners\IncMine.java
 G:\workspace_GPMiner\moa-gpmine\MoaGPminer\src\main\java\moa\cluster\Miniball.java
 G:\workspace_GPMiner\moa-gpmine\MoaGPminer\src\main\java\moa\core\FCITable.java
-G:\workspace_GPMiner\moa-gpmine\MoaGPminer\src\main\java\moa\learners\FciValue.java
 G:\workspace_GPMiner\moa-gpmine\MoaGPminer\src\main\java\moa\tasks\LearnEvaluateBehaviourPatterns.java
+G:\workspace_GPMiner\moa-gpmine\MoaGPminer\src\main\java\moa\learners\FciValue.java
 G:\workspace_GPMiner\moa-gpmine\MoaGPminer\src\main\java\moa\clusterers\WekaClusteringAlgorithm.java
 G:\workspace_GPMiner\moa-gpmine\MoaGPminer\src\main\java\moa\learners\PatternsMine.java
 G:\workspace_GPMiner\moa-gpmine\MoaGPminer\src\main\java\Charm_BitSet\Itemset.java

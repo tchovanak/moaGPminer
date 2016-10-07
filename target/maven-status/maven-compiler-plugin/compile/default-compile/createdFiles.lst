@@ -19,6 +19,7 @@ Charm_BitSet\Itemsets.class
 moa\learners\IncMine2$Subset.class
 moa\core\FrequentItemset.class
 Charm_BitSet\Context.class
+moa\learners\PatternsMine_Clustree.class
 Charm_BitSet\AlgoCharm_Bitset.class
 moa\clusterers\clustream\ClustreamKernel.class
 Charm_BitSet\HashTable.class

@@ -26,11 +26,9 @@ import moa.streams.SessionsFileStream;
 
 /**
  * 
- * @author Tomas
+ * @author Tomas Chovanak
  */
 public class GridSearchEvaluator {
-
-    
     
     private int id = 0;
     private SessionsFileStream stream = null;
@@ -41,163 +39,101 @@ public class GridSearchEvaluator {
     private boolean grouping = false;
     private double mintranssec = 5;
     private boolean faster  = false;
-    private double[] lastparams = new double[5];  //ms, rr, fsl, mncum, mnmu // if any of these isnt changed it cant be faster 
+    private boolean fasterWithoutGrouping = false;
+    private double[] lastparams = new double[11];  //ms, rr, fsl, mncum, mnmu // if any of these isnt changed it cant be faster 
+    private FileWriter writer = null;
     
-    
-    private GridSearchEvaluator(int fromid, boolean grouping, double transsec) {
+    public GridSearchEvaluator(int fromid, boolean grouping, double transsec) {
         this.fromid = fromid;
         this.grouping = grouping;
         this.mintranssec = transsec;
     }
     
     public void evaluate(List<Parameter> params){
+        boolean repeatWithGrouping = false;
+        if(checkLastParamsForGroupingChange(params)){ // some of not grouping params was changed so try with and without grouping, if other params are changed only try with grouping
+            if(this.fasterWithoutGrouping){
+                this.fasterWithoutGrouping = false;
+            }
+            repeatWithGrouping = true;
+            grouping = false;
+        }
         if(fromid > id){
             id++;
             return;
         }
+        if(this.fasterWithoutGrouping){
+            id++;
+            return; 
+        }
         if(faster){
-            if(lastparams[0] >= params.get(0).getValue() 
-                    && lastparams[1] >= params.get(1).getValue()
-                    && lastparams[2] >= params.get(2).getValue()
-                    && lastparams[3] >= params.get(8).getValue()
-                    && lastparams[4] >= params.get(9).getValue()){ // params werent changed to better
+            if(checkLastParamsForFasterConfiguration(params)){ // params werent changed to better
                 faster = true;
+                id++;
                 return;
             }else{
                 faster = false;
             }
         }
-        this.stream = new SessionsFileStream(this.pathToStream);
-        FileWriter writer = null;
+        
         PatternsMine3 learner = new PatternsMine3(this.grouping);
-        learner.minSupportOption.setValue(params.remove(0).getValue());
-        learner.relaxationRateOption.setValue(params.remove(0).getValue());
-        learner.fixedSegmentLengthOption.setValue((int) (params.remove(0).getValue()));
-        learner.maxItemsetLengthOption.setValue((int) params.remove(0).getValue());
-        learner.windowSizeOption.setValue((int) params.remove(0).getValue());
-        learner.numPages.setValue((int) params.remove(0).getValue());
-        learner.evaluationWindowSizeOption.setValue((int) params.remove(0).getValue());
-        learner.numberOfRecommendedItemsOption.setValue((int) params.remove(0).getValue());
-        if(this.grouping){
-            learner.numMinNumberOfChangesInUserModel.setValue((int) params.remove(0).getValue());
-            learner.numMinNumberOfMicroclustersUpdates.setValue((int) params.remove(0).getValue());
-            learner.numberOfGroupsOption.setValue((int) params.remove(0).getValue());
-        }
-        learner.groupFixedSegmentLengthOption.setValue(
-                (int)(((double)learner.fixedSegmentLengthOption.getValue())/((double)learner.numberOfGroupsOption.getValue())));
-        try {
-           writer = new FileWriter(this.getPathToSummaryOutputFile(), true);
-           writer.append(((Integer)id).toString());writer.append(',');
-           writer.append(((Double)learner.minSupportOption.getValue()).toString());writer.append(',');
-           writer.append(((Double)learner.relaxationRateOption.getValue()).toString());writer.append(',');
-           writer.append(((Double)(double)learner.fixedSegmentLengthOption.getValue()).toString());writer.append(',');
-           writer.append(((Double)(double)learner.maxItemsetLengthOption.getValue()).toString());writer.append(',');
-           writer.append(((Double)(double)learner.windowSizeOption.getValue()).toString());writer.append(',');
-           writer.append(((Double)(double)learner.numPages.getValue()).toString());writer.append(',');
-           writer.append(((Double)(double)learner.evaluationWindowSizeOption.getValue()).toString());writer.append(',');
-           writer.append(((Double)(double)learner.numberOfRecommendedItemsOption.getValue()).toString());writer.append(',');
-           if(this.grouping){
-               writer.append(((Double)(double) learner.numMinNumberOfChangesInUserModel.getValue()).toString());writer.append(',');
-               writer.append(((Double)(double) learner.numMinNumberOfMicroclustersUpdates.getValue()).toString());writer.append(',');
-               writer.append(((Double)(double) learner.numberOfGroupsOption.getValue()).toString());writer.append(',');
+        configureLearnerWithParams(learner, params);
+        
+        for(int i = 0; i < 2; i++){
+            this.stream = new SessionsFileStream(this.pathToStream);
+            writeConfigurationToFile(this.getPathToSummaryOutputFile(), learner);
+            learner.resetLearning();
+            stream.prepareForUse();
+            TimingUtils.enablePreciseTiming();
+            PatternsRecommendationEvaluator evaluator = 
+                    new PatternsRecommendationEvaluator(
+                            this.getPathToOutputFile() + "results_part_G" + grouping + 
+                                    "_id_" + id++ + ".csv");
+            int counter = 0;
+            //long start = TimingUtils.getNanoCPUTimeOfCurrentThread();
+            long start = System.nanoTime();
+            double transsec = 0.0;
+            int windowSize = learner.evaluationWindowSizeOption.getValue();
+            int numberOfRecommendedItems = learner.numberOfRecommendedItemsOption.getValue();
+            while (stream.hasMoreInstances()) {
+                counter++;
+                Example trainInst = stream.nextInstance();
+                Example testInst = (Example) trainInst.copy();
+                double[] recommendations = learner.getVotesForInstance(testInst);
+                evaluator.addResult(testInst, recommendations, windowSize, numberOfRecommendedItems, transsec, counter); // evaluator will evaluate recommendations and update metrics with given results     
+                learner.trainOnInstance(trainInst); // this will start training proces - it means first update clustering and then find frequent patterns
+                //long end = TimingUtils.getNanoCPUTimeOfCurrentThread();
+                long end = System.nanoTime();
+                double tp =((double)(end - start) / 1e9);
+                transsec = counter/tp;
+                System.out.println(counter); // to see progress
+                if(counter % learner.fixedSegmentLengthOption.getValue() == 0 && transsec < this.mintranssec){
+                    try{
+                        faster = true;
+                        if(!this.grouping){
+                            this.fasterWithoutGrouping = true;
+                        }
+                        updateLastParams(learner);
+                        writer.append('\n');
+                        writer.close();
+                        return; 
+                    } catch (IOException ex) {
+                        Logger.getLogger(GridSearchEvaluator.class.getName()).log(Level.SEVERE, null, ex);
+                    }  
+                }
             }
-           writer.flush();
-        } catch (IOException ex) {
-            Logger.getLogger(GridSearchEvaluator.class.getName()).log(Level.SEVERE, null, ex);
-        }
-        
-        
-        learner.resetLearning();
-        stream.prepareForUse();
-        
-        TimingUtils.enablePreciseTiming();
-        
-	
-        PatternsRecommendationEvaluator evaluator = 
-                new PatternsRecommendationEvaluator(this.getPathToOutputFile() + "results_part_G" + grouping + "_id_" + id++ + ".csv");
-        double sumLCS = 0.0;
-        int windowSize = learner.evaluationWindowSizeOption.getValue();
-        int numberOfRecommendedItems = learner.numberOfRecommendedItemsOption.getValue();
-        int counter = 0;
-        //long start = TimingUtils.getNanoCPUTimeOfCurrentThread();
-        long start = System.nanoTime();
-        double transsec = 0.0;
-        while (stream.hasMoreInstances()) {
-            counter++;
-            Example trainInst = stream.nextInstance();
-            Example testInst = (Example) trainInst.copy();
-             /* this returns array of ids of recommended items from actual 
-                testInst learner will find with LCS most promising patterns
-                and generate sets of recommendations*/
-            double[] recommendations = learner.getVotesForInstance(testInst);
-            evaluator.addResult(testInst, recommendations, windowSize, numberOfRecommendedItems, transsec, counter); // evaluator will evaluate recommendations and update metrics with given results     
-            learner.trainOnInstance(trainInst); // this will start training proces - it means first update clustering and then find frequent patterns
-            //long end = TimingUtils.getNanoCPUTimeOfCurrentThread();
             long end = System.nanoTime();
             double tp =((double)(end - start) / 1e9);
             transsec = counter/tp;
-            System.out.println(counter);
-            System.out.println(tp);
-            System.out.println(transsec);
-            if(counter % learner.fixedSegmentLengthOption.getValue() == 0 && transsec < this.mintranssec){
-                try{
-                    faster = true;
-                    this.lastparams[0] = learner.minSupportOption.getValue();
-                    this.lastparams[1] = learner.relaxationRateOption.getValue();
-                    this.lastparams[2] = learner.fixedSegmentLengthOption.getValue();
-                    this.lastparams[3] = learner.numMinNumberOfChangesInUserModel.getValue();
-                    this.lastparams[4] = learner.numMinNumberOfMicroclustersUpdates.getValue();
-                    writer.append('\n');
-                    writer.close();
-                    return; 
-//                    if(!learner.increaseRelaxationRate(0.1)){
-//                        writer.append('\n');
-//                        writer.close();
-//                        return;
-//                    }  
-                } catch (IOException ex) {
-                    Logger.getLogger(GridSearchEvaluator.class.getName()).log(Level.SEVERE, null, ex);
-                }  
+            double[] results = evaluator.getResults();
+            writeResultsToFile(results, transsec, tp, counter);
+            if(!repeatWithGrouping){
+                break;
+            }else{
+                grouping = true;
             }
-                
         }
-       
-        long end = System.nanoTime();
-        double tp =((double)(end - start) / 1e9);
-        transsec = counter/tp;
-        double[] results = evaluator.getResults();
-       
-        try{
-            writer.append(((Double)results[0]).toString());
-            writer.append(',');
-            writer.append(((Double)results[1]).toString());
-            writer.append(',');
-            writer.append(((Double)results[2]).toString());
-            writer.append(',');
-            writer.append(((Double)results[3]).toString());
-            writer.append(',');
-            writer.append(((Double)results[4]).toString());
-            writer.append(',');
-            writer.append(((Double)results[5]).toString());
-            writer.append(',');
-            writer.append(((Double)results[6]).toString());
-            writer.append(',');
-            writer.append(((Double)results[7]).toString());
-            writer.append(',');
-            writer.append(((Double)results[8]).toString());
-            writer.append(',');
-            writer.append(((Double)results[9]).toString());
-            writer.append(',');
-            writer.append(((Double)transsec).toString());
-            writer.append(',');
-            writer.append(((Double)tp).toString());
-            writer.append(',');
-            writer.append(((Integer)counter).toString());
-            writer.append('\n');
-            writer.close();
-        } catch (IOException ex) {
-            Logger.getLogger(GridSearchEvaluator.class.getName()).log(Level.SEVERE, null, ex);
-        }
+        updateLastParams(learner);
         
     }
     
@@ -211,21 +147,16 @@ public class GridSearchEvaluator {
                 origParamsCopy = deepCopy(params);
                 Parameter p2 = origParamsCopy.remove(0);
                 List<Parameter> copyParams = deepCopy(preparedParameters);
-               
-                    copyParams.add(p2);
-                
+                copyParams.add(p2);
                 this.startGridEvaluation(origParamsCopy, copyParams);
             }else{
                 double[] b = p.getBoundaries();
-                for(double i = b[0]; i <= b[1]; i+= b[2]){
-                      
+                for(double i = b[0]; i <= b[1]; i+= b[2]){  
                     origParamsCopy = deepCopy(params);
                     Parameter p2 = origParamsCopy.remove(0);
                     p2.setValue(i);
                     List<Parameter> copyParams = deepCopy(preparedParameters);
-                    
-                        copyParams.add(p2);
-                    
+                    copyParams.add(p2);
                     this.startGridEvaluation(origParamsCopy, copyParams);
                 }
                 
@@ -233,20 +164,25 @@ public class GridSearchEvaluator {
         }
     }
     
-    private List<Parameter> deepCopy(List<Parameter> orig){
-        List<Parameter> copy = new ArrayList<Parameter>(); 
-        Iterator<Parameter> iterator = orig.iterator(); 
-        while(iterator.hasNext()){ 
-            try { 
-                copy.add(iterator.next().clone());
-            } catch (CloneNotSupportedException ex) {
-                Logger.getLogger(GridSearchEvaluator.class.getName()).log(Level.SEVERE, null, ex);
-            }
-        }
-        return copy;
+    public String getPathToOutputFile() {
+        return pathToOutputFile;
+    }
+
+    public void setPathToOutputFile(String pathToOutpuFile) {
+        this.pathToOutputFile = pathToOutpuFile;
     }
     
+    public void setPathToSummaryOutputFile(String pathToOutpuFile) {
+        this.pathToSummaryOutputFile = pathToOutpuFile;
+    }
+
+    public String getPathToSummaryOutputFile() {
+        return pathToSummaryOutputFile;
+    }
     
+    public void setPathToInputFile(String path) {
+        this.pathToStream = path;
+    }
     
     /**
      * Arguments:
@@ -273,35 +209,167 @@ public class GridSearchEvaluator {
             return;
         }
         List<Parameter> params = new ArrayList<>();
+       
         try {
             String inputSessionFile = fileReader.readLine().split(",")[1].trim();
             String outputToDirectory = fileReader.readLine().split(",")[1].trim();
             int fromid = Integer.parseInt(fileReader.readLine().split(",")[1].trim());
             boolean grouping = Boolean.parseBoolean(fileReader.readLine().split(",")[1].trim());
             double transsec = Double.parseDouble(fileReader.readLine().split(",")[1].trim());
-            double maxUpdateTime = Double.parseDouble(fileReader.readLine().split(",")[1].trim());
-            Configuration.MAX_UPDATE_TIME = maxUpdateTime;
+            Configuration.MAX_UPDATE_TIME = Double.parseDouble(fileReader.readLine().split(",")[1].trim());
+            Configuration.MAX_FCI_SET_COUNT = Double.parseDouble(fileReader.readLine().split(",")[1].trim());
+            Configuration.MAX_SEMI_FCI_SET_COUNT = Double.parseDouble(fileReader.readLine().split(",")[1].trim());
             for(String line = fileReader.readLine(); line != null; line = fileReader.readLine()) {
                 String[] row = line.split(",");
                 params.add(new Parameter(0, Double.parseDouble(row[1]), 
                            Double.parseDouble(row[2]), Double.parseDouble(row[3])));   
             }
-            writeHeader(outputToDirectory + "summary_results_G" + grouping + ".csv", grouping);
+            writeHeader(outputToDirectory + "summary_results.csv", grouping);
             GridSearchEvaluator evaluator = new GridSearchEvaluator(fromid, grouping, transsec);
             evaluator.setPathToOutputFile(outputToDirectory);
             evaluator.setPathToInputFile(inputSessionFile);
-            evaluator.setPathToSummaryOutputFile(outputToDirectory + "summary_results_G" + grouping + ".csv");
+            evaluator.setPathToSummaryOutputFile(outputToDirectory + "summary_results.csv");
             List<Parameter> preparedParams = new ArrayList<>();
             evaluator.startGridEvaluation(params, preparedParams);  
         } catch (IOException ex) {
             Logger.getLogger(GridSearchEvaluator.class.getName()).log(Level.SEVERE, null, ex);
+        } 
+    }
+
+    
+    private List<Parameter> deepCopy(List<Parameter> orig){
+        List<Parameter> copy = new ArrayList<Parameter>(); 
+        Iterator<Parameter> iterator = orig.iterator(); 
+        while(iterator.hasNext()){ 
+            try { 
+                copy.add(iterator.next().clone());
+            } catch (CloneNotSupportedException ex) {
+                Logger.getLogger(GridSearchEvaluator.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+        return copy;
+    }
+    
+    private boolean checkLastParamsForGroupingChange(List<Parameter> params){
+        if(lastparams[0] != params.get(0).getValue()  //ms   // if these params were changed use last params
+            || lastparams[1] != params.get(1).getValue() //rr
+            || lastparams[2] != params.get(2).getValue() //fsl
+            || lastparams[3] != params.get(3).getValue() //rr
+            || lastparams[4] != params.get(4).getValue() //fsl
+            || lastparams[5] != params.get(5).getValue() //rr
+            || lastparams[6] != params.get(6).getValue() //fsl
+            || lastparams[7] != params.get(7).getValue() //fsl
+        ){ // params were changed so try with and without grouping, if other params are changed only try with grouping
+            return true;
+        }else{
+            return false;
+        }
+        
+    }
+    
+    private boolean checkLastParamsForFasterConfiguration(List<Parameter> params){
+        if(lastparams[0] >= params.get(0).getValue()  //ms 
+            && lastparams[1] >= params.get(1).getValue() //rr
+            && lastparams[2] >= params.get(2).getValue() //fsl
+            && lastparams[8] >= params.get(8).getValue() 
+            && lastparams[9] >= params.get(9).getValue())
+        { // params werent changed to better
+            return true;
+        }else{
+            return false;
         }
     }
+    
+    private void configureLearnerWithParams(PatternsMine3 learner, List<Parameter> params){
+        learner.minSupportOption.setValue(params.remove(0).getValue());
+        learner.relaxationRateOption.setValue(params.remove(0).getValue());
+        learner.fixedSegmentLengthOption.setValue((int) (params.remove(0).getValue()));
+        learner.maxItemsetLengthOption.setValue((int) params.remove(0).getValue());
+        learner.windowSizeOption.setValue((int) params.remove(0).getValue());
+        learner.numPages.setValue((int) params.remove(0).getValue());
+        learner.evaluationWindowSizeOption.setValue((int) params.remove(0).getValue());
+        learner.numberOfRecommendedItemsOption.setValue((int) params.remove(0).getValue());
+        //if(this.grouping){
+        learner.numMinNumberOfChangesInUserModel.setValue((int) params.remove(0).getValue());
+        learner.numMinNumberOfMicroclustersUpdates.setValue((int) params.remove(0).getValue());
+        learner.numberOfGroupsOption.setValue((int) params.remove(0).getValue());
+        //}
+        learner.groupFixedSegmentLengthOption.setValue(
+                (int)(((double)learner.fixedSegmentLengthOption.getValue())/((double)learner.numberOfGroupsOption.getValue())));
+    }
+    
+    private void writeConfigurationToFile(String path, PatternsMine3 learner){
+        try {
+            this.writer = new FileWriter(this.getPathToSummaryOutputFile(), true);
+            writer.append(((Integer)id).toString());writer.append(',');
+            writer.append(((Boolean)this.grouping).toString());writer.append(',');
+            writer.append(((Double)learner.minSupportOption.getValue()).toString());writer.append(',');
+            writer.append(((Double)learner.relaxationRateOption.getValue()).toString());writer.append(',');
+            writer.append(((Double)(double)learner.fixedSegmentLengthOption.getValue()).toString());writer.append(',');
+            writer.append(((Double)(double)learner.maxItemsetLengthOption.getValue()).toString());writer.append(',');
+            writer.append(((Double)(double)learner.windowSizeOption.getValue()).toString());writer.append(',');
+            writer.append(((Double)(double)learner.numPages.getValue()).toString());writer.append(',');
+            writer.append(((Double)(double)learner.evaluationWindowSizeOption.getValue()).toString());writer.append(',');
+            writer.append(((Double)(double)learner.numberOfRecommendedItemsOption.getValue()).toString());writer.append(',');
+            if(this.grouping){
+                writer.append(((Double)(double) learner.numMinNumberOfChangesInUserModel.getValue()).toString());writer.append(',');
+                writer.append(((Double)(double) learner.numMinNumberOfMicroclustersUpdates.getValue()).toString());writer.append(',');
+                writer.append(((Double)(double) learner.numberOfGroupsOption.getValue()).toString());writer.append(',');
+             }else{
+                writer.append("No grouping");writer.append(',');
+                writer.append("No grouping");writer.append(',');
+                writer.append("No grouping");writer.append(',');
+            }
+            writer.flush();
+         } catch (IOException ex) {
+             Logger.getLogger(GridSearchEvaluator.class.getName()).log(Level.SEVERE, null, ex);
+         }
+    }
+    
+    private void writeResultsToFile(double[] results, double transsec, double tp, int counter){
+        try{
+                writer.append(((Double)results[0]).toString());
+                writer.append(',');
+                writer.append(((Double)results[1]).toString());
+                writer.append(',');
+                writer.append(((Double)results[2]).toString());
+                writer.append(',');
+                writer.append(((Double)results[3]).toString());
+                writer.append(',');
+                writer.append(((Double)results[4]).toString());
+                writer.append(',');
+                writer.append(((Double)results[5]).toString());
+                writer.append(',');
+                writer.append(((Double)results[6]).toString());
+                writer.append(',');
+                writer.append(((Double)results[7]).toString());
+                writer.append(',');
+                writer.append(((Double)results[8]).toString());
+                writer.append(',');
+                writer.append(((Double)results[9]).toString());
+                writer.append(',');
+                writer.append(((Double)transsec).toString());
+                writer.append(',');
+                writer.append(((Double)tp).toString());
+                writer.append(',');
+                writer.append(((Integer)counter).toString());
+                writer.append('\n');
+                writer.close();
+            } catch (IOException ex) {
+                Logger.getLogger(GridSearchEvaluator.class.getName()).log(Level.SEVERE, null, ex);
+            }
+    }
+    
+    
+    
+    
     
     private static void writeHeader(String path, boolean grouping) {
         try {
             try (FileWriter writer = new FileWriter(path, true)) {
                 writer.append("fileid");
+                writer.append(',');
+                writer.append("grouping");
                 writer.append(',');
                 writer.append("minSupportOption");
                 writer.append(',');
@@ -319,14 +387,12 @@ public class GridSearchEvaluator {
                 writer.append(',');
                 writer.append("numberOfRecommendedItemsOption");
                 writer.append(',');
-                if(grouping){
-                    writer.append("numMinNumberOfChangesInUserModel");
-                    writer.append(',');
-                    writer.append("numMinNumberOfMicroclustersUpdates");
-                    writer.append(',');
-                    writer.append("numOfGroups");
-                    writer.append(',');
-                }
+                writer.append("numMinNumberOfChangesInUserModel");
+                writer.append(',');
+                writer.append("numMinNumberOfMicroclustersUpdates");
+                writer.append(',');
+                writer.append("numOfGroups");
+                writer.append(',');
                 writer.append("precision");
                 writer.append(',');
                 writer.append("movingAveragePrecision");
@@ -359,24 +425,19 @@ public class GridSearchEvaluator {
         }
     }
 
-    public String getPathToOutputFile() {
-        return pathToOutputFile;
-    }
-
-    public void setPathToOutputFile(String pathToOutpuFile) {
-        this.pathToOutputFile = pathToOutpuFile;
-    }
-    
-    public void setPathToSummaryOutputFile(String pathToOutpuFile) {
-        this.pathToSummaryOutputFile = pathToOutpuFile;
-    }
-
-    public String getPathToSummaryOutputFile() {
-        return pathToSummaryOutputFile;
-    }
-    
-    public void setPathToInputFile(String path) {
-        this.pathToStream = path;
+ 
+    private void updateLastParams(PatternsMine3 learner) {
+        this.lastparams[0] = learner.minSupportOption.getValue();
+        this.lastparams[1] = learner.relaxationRateOption.getValue();
+        this.lastparams[2] = learner.fixedSegmentLengthOption.getValue();
+        this.lastparams[3] = learner.maxItemsetLengthOption.getValue();
+        this.lastparams[4] = learner.windowSizeOption.getValue();
+        this.lastparams[5] = learner.numPages.getValue();
+        this.lastparams[6] = learner.evaluationWindowSizeOption.getValue();
+        this.lastparams[7] = learner.numberOfRecommendedItemsOption.getValue();
+        this.lastparams[8] = learner.numMinNumberOfChangesInUserModel.getValue();
+        this.lastparams[9] = learner.numMinNumberOfMicroclustersUpdates.getValue();
+        this.lastparams[10] = learner.numberOfGroupsOption.getValue();
     }
     
 }
