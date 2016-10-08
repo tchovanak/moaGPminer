@@ -5,7 +5,6 @@
  */
 package moa.utils;
 
-import com.yahoo.labs.samoa.instances.Instance;
 import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -49,46 +48,64 @@ public class GridSearchEvaluator {
         this.mintranssec = transsec;
     }
     
+    
     public void evaluate(List<Parameter> params){
-        boolean repeatWithGrouping = false;
-        if(checkLastParamsForGroupingChange(params)){ // some of not grouping params was changed so try with and without grouping, if other params are changed only try with grouping
-            if(this.fasterWithoutGrouping){
-                this.fasterWithoutGrouping = false;
-            }
-            repeatWithGrouping = true;
-            grouping = false;
-        }
-        if(fromid > id){
-            id++;
+        // fromid is used to allow user restart evaluation from different point 
+        id++; // id is always incremented
+        if(fromid >= id){
             return;
         }
-        if(this.fasterWithoutGrouping){
-            id++;
-            return; 
+        /*
+            if there was raised flag in previous evaluation that parameter configuration
+            is too slow, then this condition is used to check if any of desired 
+            parameters that are possibly speeding up alghoritm were changed, if so 
+            then new configuration is accepted as possibly faster, thus tried.
+        */
+        if(this.fasterWithoutGrouping){ 
+             if(checkLastParamsForFasterWithoutGroupingConfiguration(params)){ // params werent changed to better
+                fasterWithoutGrouping = true;
+                return;
+            }else{
+                fasterWithoutGrouping = false;
+            }
         }
         if(faster){
             if(checkLastParamsForFasterConfiguration(params)){ // params werent changed to better
                 faster = true;
-                id++;
                 return;
             }else{
                 faster = false;
             }
         }
+        boolean repeatWithGrouping = false;
+        // some of not grouping params was changed so try with and without grouping, 
+        // if other params are changed only try with grouping
+        if(checkLastParamsForNotGroupingChange(params)){ 
+            repeatWithGrouping = true;
+            grouping = false;
+        }else{
+            grouping = true;
+        }
         
+        // initialize and configure learner
         PatternsMine3 learner = new PatternsMine3(this.grouping);
         configureLearnerWithParams(learner, params);
         
-        for(int i = 0; i < 2; i++){
+        for(int i = 0; i < 2; i++){    
+            if(i == 0){
+                grouping = true;
+                continue;
+            }
             this.stream = new SessionsFileStream(this.pathToStream);
             writeConfigurationToFile(this.getPathToSummaryOutputFile(), learner);
+            learner.useGroupingOption.setValue(grouping); // change grouping option in learner
             learner.resetLearning();
             stream.prepareForUse();
             TimingUtils.enablePreciseTiming();
             PatternsRecommendationEvaluator evaluator = 
                     new PatternsRecommendationEvaluator(
                             this.getPathToOutputFile() + "results_part_G" + grouping + 
-                                    "_id_" + id++ + ".csv");
+                                    "_id_" + id + ".csv");
             int counter = 0;
             //long start = TimingUtils.getNanoCPUTimeOfCurrentThread();
             long start = System.nanoTime();
@@ -106,21 +123,25 @@ public class GridSearchEvaluator {
                 long end = System.nanoTime();
                 double tp =((double)(end - start) / 1e9);
                 transsec = counter/tp;
-                System.out.println(counter); // to see progress
-                if(counter % learner.fixedSegmentLengthOption.getValue() == 0 && transsec < this.mintranssec){
-                    try{
-                        faster = true;
-                        if(!this.grouping){
-                            this.fasterWithoutGrouping = true;
-                        }
-                        updateLastParams(learner);
-                        writer.append('\n');
-                        writer.close();
-                        return; 
-                    } catch (IOException ex) {
-                        Logger.getLogger(GridSearchEvaluator.class.getName()).log(Level.SEVERE, null, ex);
-                    }  
+                if(counter % learner.fixedSegmentLengthOption.getValue() == 0){
+                    System.out.println(counter); // to see progress
+                    if(transsec < this.mintranssec){
+                        try{
+                            if(!grouping){
+                                fasterWithoutGrouping = true;
+                            }else{
+                                faster = true;
+                            }
+                            updateLastParams(learner);
+                            writer.append('\n');
+                            writer.close();
+                            return; 
+                        } catch (IOException ex) {
+                            Logger.getLogger(GridSearchEvaluator.class.getName()).log(Level.SEVERE, null, ex);
+                        }  
+                    }
                 }
+                
             }
             long end = System.nanoTime();
             double tp =((double)(end - start) / 1e9);
@@ -130,6 +151,7 @@ public class GridSearchEvaluator {
             if(!repeatWithGrouping){
                 break;
             }else{
+                id++;
                 grouping = true;
             }
         }
@@ -159,7 +181,6 @@ public class GridSearchEvaluator {
                     copyParams.add(p2);
                     this.startGridEvaluation(origParamsCopy, copyParams);
                 }
-                
             }
         }
     }
@@ -197,7 +218,7 @@ public class GridSearchEvaluator {
             if(args.length > 0){
                 fileStream = new FileInputStream(args[0]);
             }else{
-                fileStream = new FileInputStream("g:\\workspace_DP2\\results_grid\\config\\start_configuration_grouping-test.csv");
+                fileStream = new FileInputStream("g:\\workspace_DP2\\results_grid\\config\\start_configuration_grouping.csv");
             }
             
             fileReader = new BufferedReader(new InputStreamReader(fileStream));
@@ -250,15 +271,15 @@ public class GridSearchEvaluator {
         return copy;
     }
     
-    private boolean checkLastParamsForGroupingChange(List<Parameter> params){
-        if(lastparams[0] != params.get(0).getValue()  //ms   // if these params were changed use last params
-            || lastparams[1] != params.get(1).getValue() //rr
-            || lastparams[2] != params.get(2).getValue() //fsl
-            || lastparams[3] != params.get(3).getValue() //rr
-            || lastparams[4] != params.get(4).getValue() //fsl
-            || lastparams[5] != params.get(5).getValue() //rr
-            || lastparams[6] != params.get(6).getValue() //fsl
-            || lastparams[7] != params.get(7).getValue() //fsl
+    private boolean checkLastParamsForNotGroupingChange(List<Parameter> params){
+        if(lastparams[0] != params.get(0).getValue()  //minSupport   
+            || lastparams[1] != params.get(1).getValue() //relaxationRate
+            || lastparams[2] != params.get(2).getValue() //fixedSegmentLength
+            || lastparams[3] != params.get(3).getValue() //maxItemsetLength
+            || lastparams[4] != params.get(4).getValue() //windowSize
+            || lastparams[5] != params.get(5).getValue() //numPages
+            || lastparams[6] != params.get(6).getValue() //evaluationWindowSize
+            || lastparams[7] != params.get(7).getValue() //numOfRecommendedItems
         ){ // params were changed so try with and without grouping, if other params are changed only try with grouping
             return true;
         }else{
@@ -267,12 +288,24 @@ public class GridSearchEvaluator {
         
     }
     
+    private boolean checkLastParamsForFasterWithoutGroupingConfiguration(List<Parameter> params){
+        if(lastparams[0] >= params.get(0).getValue()  //minSupport   
+            && lastparams[1] >= params.get(1).getValue() //relaxationRate
+            && lastparams[2] >= params.get(2).getValue() //fixedSegmentLength
+        )
+        { // params werent changed to better
+            return true;
+        }else{
+            return false;
+        }
+    }
+    
     private boolean checkLastParamsForFasterConfiguration(List<Parameter> params){
-        if(lastparams[0] >= params.get(0).getValue()  //ms 
-            && lastparams[1] >= params.get(1).getValue() //rr
-            && lastparams[2] >= params.get(2).getValue() //fsl
-            && lastparams[8] >= params.get(8).getValue() 
-            && lastparams[9] >= params.get(9).getValue())
+        if(lastparams[0] >= params.get(0).getValue()  //minSupport
+            && lastparams[1] >= params.get(1).getValue() //relaxationRate
+            && lastparams[2] >= params.get(2).getValue() //fixedSegmentLength
+            && lastparams[8] >= params.get(8).getValue() //minNumOfChangesInUserModel
+            && lastparams[9] >= params.get(9).getValue()) //minNumOfChangesInMicrocluster
         { // params werent changed to better
             return true;
         }else{
@@ -281,18 +314,18 @@ public class GridSearchEvaluator {
     }
     
     private void configureLearnerWithParams(PatternsMine3 learner, List<Parameter> params){
-        learner.minSupportOption.setValue(params.remove(0).getValue());
-        learner.relaxationRateOption.setValue(params.remove(0).getValue());
-        learner.fixedSegmentLengthOption.setValue((int) (params.remove(0).getValue()));
-        learner.maxItemsetLengthOption.setValue((int) params.remove(0).getValue());
-        learner.windowSizeOption.setValue((int) params.remove(0).getValue());
-        learner.numPages.setValue((int) params.remove(0).getValue());
-        learner.evaluationWindowSizeOption.setValue((int) params.remove(0).getValue());
-        learner.numberOfRecommendedItemsOption.setValue((int) params.remove(0).getValue());
+        learner.minSupportOption.setValue(params.get(0).getValue());
+        learner.relaxationRateOption.setValue(params.get(1).getValue());
+        learner.fixedSegmentLengthOption.setValue((int) (params.get(2).getValue()));
+        learner.maxItemsetLengthOption.setValue((int) params.get(3).getValue());
+        learner.windowSizeOption.setValue((int) params.get(4).getValue());
+        learner.numPages.setValue((int) params.get(5).getValue());
+        learner.evaluationWindowSizeOption.setValue((int) params.get(6).getValue());
+        learner.numberOfRecommendedItemsOption.setValue((int) params.get(7).getValue());
         //if(this.grouping){
-        learner.numMinNumberOfChangesInUserModel.setValue((int) params.remove(0).getValue());
-        learner.numMinNumberOfMicroclustersUpdates.setValue((int) params.remove(0).getValue());
-        learner.numberOfGroupsOption.setValue((int) params.remove(0).getValue());
+        learner.numMinNumberOfChangesInUserModel.setValue((int) params.get(8).getValue());
+        learner.numMinNumberOfMicroclustersUpdates.setValue((int) params.get(9).getValue());
+        learner.numberOfGroupsOption.setValue((int) params.get(10).getValue());
         //}
         learner.groupFixedSegmentLengthOption.setValue(
                 (int)(((double)learner.fixedSegmentLengthOption.getValue())/((double)learner.numberOfGroupsOption.getValue())));
@@ -359,10 +392,6 @@ public class GridSearchEvaluator {
                 Logger.getLogger(GridSearchEvaluator.class.getName()).log(Level.SEVERE, null, ex);
             }
     }
-    
-    
-    
-    
     
     private static void writeHeader(String path, boolean grouping) {
         try {

@@ -5,6 +5,7 @@ import moa.MOAObject;
 import moa.core.*;
 import com.github.javacliparser.FloatOption;
 import com.github.javacliparser.IntOption;
+import com.github.javacliparser.FlagOption;
 import com.yahoo.labs.samoa.instances.Prediction;
 import com.yahoo.labs.samoa.instances.Instance;
 import moa.core.InstanceExample;
@@ -83,8 +84,13 @@ public class PatternsMine3 extends AbstractLearner implements Observer {
             "maxTimeoutInMs", 't',
             "Maximal time to update fcis.", 1000);
     
+    public FlagOption useGroupingOption = new FlagOption(
+            "useGroupingFlag", 'f',
+            "If flag is set grouping is used.");
+    
+    
+    
     private Clustering kmeansClustering;
-    private boolean grouping = true;
      
     public PatternsMine3(){
         super();
@@ -96,7 +102,7 @@ public class PatternsMine3 extends AbstractLearner implements Observer {
 
     public PatternsMine3(boolean grouping) {
         super();
-        this.grouping = grouping;
+        this.useGroupingOption.setValue(grouping);
         this.clusterer = new WithKmeans();
         this.clusterer.kOption.setValue(numberOfGroupsOption.getValue());
         this.clusterer.maxNumKernelsOption.setValue(100);
@@ -125,7 +131,7 @@ public class PatternsMine3 extends AbstractLearner implements Observer {
     public void trainOnInstance(Example e) {
         // first update user model with new data
         Instance inst = (Instance) e.getData();
-        if(grouping){
+        if(useGroupingOption.isSet()){
             UserModel um = updateUserModel(inst);
             if(um.getNumberOfChanges() > this.numMinNumberOfChangesInUserModel.getValue()){
                 um.setNumberOfChanges(0);
@@ -203,7 +209,7 @@ public class PatternsMine3 extends AbstractLearner implements Observer {
 //            }
 //        }
         
-        if(grouping){
+        if(useGroupingOption.isSet()){
             if(kmeansClustering != null){  // if already clustering was performed
                 UserModel um = getUserModelFromInstance(session);
                 if(um != null){
@@ -260,7 +266,7 @@ public class PatternsMine3 extends AbstractLearner implements Observer {
             }
         }
         
-        if(this.grouping){
+        if(useGroupingOption.isSet()){
             //         This next block performs the same with group fcis. 
             //         This can be commented out to test performance without group fcis.
             if(sessionArray.get(0) > -1){  // if group has some fci append it to list
@@ -411,7 +417,7 @@ public class PatternsMine3 extends AbstractLearner implements Observer {
     }
     
     private UserModel updateUserModel(Instance inst){
-        if(this.grouping){
+        if(useGroupingOption.isSet()){
             int uid = (int)inst.value(1);
             if(usermodels.containsKey(uid)){
                 UserModel um = usermodels.get(uid);
