@@ -48,7 +48,6 @@ public class GridSearchEvaluator {
         this.mintranssec = transsec;
     }
     
-    
     public void evaluate(List<Parameter> params){
         // fromid is used to allow user restart evaluation from different point 
         id++; // id is always incremented
@@ -91,11 +90,7 @@ public class GridSearchEvaluator {
         PatternsMine3 learner = new PatternsMine3(this.grouping);
         configureLearnerWithParams(learner, params);
         
-        for(int i = 0; i < 2; i++){    
-            if(i == 0){
-                grouping = true;
-                continue;
-            }
+        for(int i = 0; i < 2; i++){
             this.stream = new SessionsFileStream(this.pathToStream);
             writeConfigurationToFile(this.getPathToSummaryOutputFile(), learner);
             learner.useGroupingOption.setValue(grouping); // change grouping option in learner
@@ -108,7 +103,7 @@ public class GridSearchEvaluator {
                                     "_id_" + id + ".csv");
             int counter = 0;
             //long start = TimingUtils.getNanoCPUTimeOfCurrentThread();
-            long start = System.nanoTime();
+            long start = TimingUtils.getNanoCPUTimeOfCurrentThread();
             double transsec = 0.0;
             int windowSize = learner.evaluationWindowSizeOption.getValue();
             int numberOfRecommendedItems = learner.numberOfRecommendedItemsOption.getValue();
@@ -119,8 +114,8 @@ public class GridSearchEvaluator {
                 double[] recommendations = learner.getVotesForInstance(testInst);
                 evaluator.addResult(testInst, recommendations, windowSize, numberOfRecommendedItems, transsec, counter); // evaluator will evaluate recommendations and update metrics with given results     
                 learner.trainOnInstance(trainInst); // this will start training proces - it means first update clustering and then find frequent patterns
-                //long end = TimingUtils.getNanoCPUTimeOfCurrentThread();
-                long end = System.nanoTime();
+                long end = TimingUtils.getNanoCPUTimeOfCurrentThread();
+                //long end = System.nanoTime();
                 double tp =((double)(end - start) / 1e9);
                 transsec = counter/tp;
                 if(counter % learner.fixedSegmentLengthOption.getValue() == 0){
@@ -140,17 +135,18 @@ public class GridSearchEvaluator {
                             Logger.getLogger(GridSearchEvaluator.class.getName()).log(Level.SEVERE, null, ex);
                         }  
                     }
+                    
                 }
                 
             }
-            long end = System.nanoTime();
+            long end = TimingUtils.getNanoCPUTimeOfCurrentThread();
             double tp =((double)(end - start) / 1e9);
             transsec = counter/tp;
             double[] results = evaluator.getResults();
             writeResultsToFile(results, transsec, tp, counter);
             if(!repeatWithGrouping){
                 break;
-            }else{
+            }else if(i == 0){
                 id++;
                 grouping = true;
             }

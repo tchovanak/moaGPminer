@@ -26,12 +26,12 @@ import moa.MOAObject;
 import moa.core.*;
 import com.github.javacliparser.FloatOption;
 import com.github.javacliparser.IntOption;
-import com.github.javacliparser.MultiChoiceOption;
 import com.yahoo.labs.samoa.instances.Prediction;
 import com.yahoo.labs.samoa.instances.Instance;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import moa.core.InstanceExample;
+
+
 
 public class IncMine extends AbstractLearner implements Observer {
     
