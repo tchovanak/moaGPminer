@@ -31,168 +31,141 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Pattern mining evaluator that performs basic incremental evaluation.
- *
+ * Pattern mining evaluator that performs basic incremental evaluation. 
  * @author Tomas Chovanak
  */
 public class PatternsRecommendationEvaluator extends AbstractMOAObject{
 
     private final Queue<Double> window = new LinkedList<>();
-    private int sumLCS =  0;
-    private int allItems = 0;
-    private int numberOfRecommendedSessions = 0;
-    private int numberOfSuccessfullyRecommendedSessions = 0;
-    private int realRecommendedItems = 0;
-    private int allHitsFromGlobal = 0;
-    private int allHitsFromGroup = 0;
-    private int windowSize = 1000;
-    private double sumWindow = 0.0;
+    private int maxRecommendedItems = 0; 
+    
+    private int ggHits =  0;  // all items hitted by group + global patterns
+    private int ggRealRecommendedItems = 0; // number of items that were really recommended to user
+    private int ggHitsGlobal =  0;  // all items hitted by group + global patterns
+    private int ggHitsGroup =  0;  // all items hitted by group + global patterns
+    
+    private int goHits =  0;  // all items hitted by only global patterns
+    private int goRealRecommendedItems = 0; // number of items that were really recommended to user
+    
+    private int ogHits =  0;  // all items hitted by only group patterns
+    private int ogRealRecommendedItems = 0; // number of items that were really recommended to user
+
     private FileWriter writer = null;
 
     public PatternsRecommendationEvaluator(String outputFile)  {
         try {
             this.writer = new FileWriter(outputFile);
-            writer.append("transaction id");  // transaction id
-            writer.append(',');
-            writer.append("transaction length");  // transaction length
-            writer.append(',');
-            writer.append("test length");  // test length
-            writer.append(',');
-            writer.append("num really recommended items");  // number of really recommended items
-            writer.append(',');
-            writer.append("num hits from global patterns");  // number of hits from global
-            writer.append(',');
-            writer.append("num hits from group patterns");  // number of hits from group
-            writer.append(',');
-            writer.append("precision 1");   // summary precision 
-            writer.append(',');
-            writer.append("precision 2");   // summary precision 
-            writer.append(',');
-            writer.append("moving average precision 1");   // moving average
-            writer.append(',');
-            writer.append("summary LCS hits"); // summary LCS
-            writer.append(',');
-            writer.append("all items");
-            writer.append(',');
-            writer.append("real recommended items");
-            writer.append(',');
-            writer.append("speed transsec");
-            writer.append('\n');
-        
+            writer.append("TRANSACTION ID");writer.append(',');  // transaction id
+            writer.append("TRANSACTION LENGTH");writer.append(',');  // transaction length
+            writer.append("TEST LENGTH");writer.append(',');  // evaluation test length
+            writer.append("GG GLOBAL INDIVIDUAL HITS");writer.append(',');  // number of hits from global
+            writer.append("GG GROUP INDIVIDUAL HITS");writer.append(',');  // number of hits from group
+            writer.append("GO INDIVIDUAL HITS"); writer.append(',');  // number of hits from global
+            writer.append("OG INDIVIDUAL HITS"); writer.append(',');  // number of hits from group
+            writer.append("GG SUM ALL HITS");writer.append(',');  // number of hits from global + group
+            writer.append("GG SUM REAL RECOMMENDED");writer.append(',');  // number of hits from only group
+            writer.append("GO SUM ALL HITS");writer.append(',');  // number of hits from global + group
+            writer.append("GO SUM REAL RECOMMENDED");writer.append(',');  // number of hits from only group
+            writer.append("OG SUM ALL HITS");writer.append(',');  // number of hits from global + group
+            writer.append("OG SUM REAL RECOMMENDED");writer.append(',');  // number of hits from only group
+            writer.append("MAX RECOMMENDED ITEMS");writer.append(','); // number of items that should be recommended maxi
+            writer.append("TRANSSEC");writer.append('\n');
         } catch (IOException ex) {
             Logger.getLogger(PatternsRecommendationEvaluator.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
     
-    private void addNum(double num) {
-        sumWindow += num;
-        window.add(num);
-        if (window.size() > windowSize) {
-            sumWindow -= window.remove();
+    private void writeResultsToFile(Integer counter, Integer sessionLength, Integer windowSize,
+                                    Double lggGlobalHits, Double lggGroupHits, Double lgoHits,
+                                    Double logHits, Double transsec) {
+        try {
+            writer.append(counter.toString());writer.append(',');  // transaction id
+            writer.append(sessionLength.toString());writer.append(',');  // transaction length
+            writer.append(((Integer)(sessionLength - windowSize)).toString());writer.append(',');  // test length
+            writer.append((lggGlobalHits).toString());writer.append(',');  // number of really recommended items
+            writer.append((lggGroupHits).toString());writer.append(',');  // number of hits from global
+            writer.append((lgoHits).toString()); writer.append(','); // number of hits from group
+            writer.append((logHits).toString()); writer.append(',');  // number of hits from global
+            writer.append(((Integer)ggHits).toString());writer.append(',');  // number of hits from group
+            writer.append(((Integer)ggRealRecommendedItems).toString());writer.append(',');  // number of hits from group
+            writer.append(((Integer)goHits).toString());writer.append(',');  // number of hits from group
+            writer.append(((Integer)goRealRecommendedItems).toString());writer.append(',');  // number of hits from group
+            writer.append(((Integer)ogHits).toString());writer.append(',');  // number of hits from group
+            writer.append(((Integer)ogRealRecommendedItems).toString()); writer.append(',');  // number of hits from group
+            writer.append(((Integer)maxRecommendedItems).toString()); writer.append(','); // number of hits from group
+            writer.append((transsec).toString());writer.append('\n');
+        } catch (IOException ex) {
+            Logger.getLogger(PatternsRecommendationEvaluator.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
     
-    private double getAvg() {
-        if (window.isEmpty()) return 0; // technically the average is undefined
-        return sumWindow / window.size();
-    }
     
     public void addResult(Example instance, double[] recommendations, int windowSize, 
             int numberOfRecommendedItems, double transsec, Integer counter) {
-        double lcsValFromGlobal = 0;
-        double lcsValFromGroup = 0;
-        double numRecommendedItems = 0;
+        double lggGlobalHits = 0;
+        double lggGroupHits = 0;
+        double lggAllHits = 0;
+        double lggCnt = 0;
+        double lgoHits = 0;
+        double lgoCnt = 0;
+        double logHits = 0;
+        double logCnt = 0;
         Instance session = (Instance)instance.getData();
         Integer sessionLength = (Integer)(session.numValues() - 2);
-        allItems += numberOfRecommendedItems;
+        this.maxRecommendedItems += numberOfRecommendedItems;
         if(recommendations != null){
-            lcsValFromGlobal = recommendations[0];
-            lcsValFromGroup = recommendations[1];
-            numRecommendedItems = recommendations[2];
-            if(numRecommendedItems > 0){
-                this.sumLCS += (lcsValFromGroup + lcsValFromGlobal);
-                this.allHitsFromGlobal += lcsValFromGlobal;
-                this.allHitsFromGroup += lcsValFromGroup;
-                realRecommendedItems += numRecommendedItems;
-                this.numberOfRecommendedSessions += 1;
-                double prec = (lcsValFromGroup + lcsValFromGlobal)/numberOfRecommendedItems;
-                if(prec > 0){
-                    this.numberOfSuccessfullyRecommendedSessions += 1;
-                }
-                addNum(prec);
+            lggGlobalHits = recommendations[0];
+            lggGroupHits = recommendations[1];
+            lggAllHits =  recommendations[2];
+            lggCnt =  recommendations[3];
+            lgoHits = recommendations[4];
+            lgoCnt = recommendations[5];
+            logHits = recommendations[6];
+            logCnt = recommendations[7];
+            if(lggCnt > 0){
+                this.ggHits += lggAllHits;
+                this.ggHitsGlobal += lggGlobalHits;
+                this.ggHitsGroup += lggGroupHits;
+                this.ggRealRecommendedItems += lggCnt;
             }
-        }
-        Double restSessionElements = sessionLength - windowSize - (lcsValFromGroup + lcsValFromGlobal);
-        Double prec1 = (((double)sumLCS)/((double)allItems));
-        Double prec2 = (((double)sumLCS)/((double)realRecommendedItems));
-        Double ma = getAvg();
-       
-        try {
-            writer.append(counter.toString());  // transaction id
-            writer.append(',');
-            writer.append(sessionLength.toString());  // transaction length
-            writer.append(',');
-            writer.append(((Integer)(sessionLength - windowSize)).toString());  // test length
-            writer.append(',');
-            writer.append(((Double)numRecommendedItems).toString());  // number of really recommended items
-            writer.append(',');
-            writer.append(((Double)lcsValFromGlobal).toString());  // number of hits from global
-            writer.append(',');
-            writer.append(((Double)lcsValFromGroup).toString());  // number of hits from group
-            writer.append(',');
-            writer.append(prec1.toString());   // summary precision 
-            writer.append(',');
-            writer.append(prec2.toString());   // summary precision 
-            writer.append(',');
-            writer.append(ma.toString());   // moving average
-            writer.append(',');
-            writer.append(((Integer)sumLCS).toString()); // summary LCS
-            writer.append(',');
-            writer.append(((Integer)allItems).toString());
-            writer.append(',');
-            writer.append(((Integer)realRecommendedItems).toString());
-            writer.append(',');
-            writer.append(((Double)transsec).toString());
-            writer.append('\n');
-        } catch (IOException ex) {
-            Logger.getLogger(PatternsRecommendationEvaluator.class.getName()).log(Level.SEVERE, null, ex);
-        }
+            if(lgoCnt > 0){
+                this.goHits += lgoHits;
+                this.goRealRecommendedItems += lgoCnt;
+            }
+            if(logCnt > 0){
+                this.ogHits += logHits;
+                this.ogRealRecommendedItems += logCnt;
+            }
+        }   
+        writeResultsToFile(counter, sessionLength,(Integer)windowSize, 
+                (Double)lggGlobalHits,(Double)lggGroupHits,(Double)lgoHits,
+                (Double)logHits, transsec);
+        
 	
+    }
+    
+    public double[] getResults() {
+        double[] results = new double[9];
+        results[0] = ggHitsGlobal;
+        results[1] = ggHitsGroup;
+        results[2] = ggHits;
+        results[3] = ggRealRecommendedItems;
+        results[4] = goHits;
+        results[5] = goRealRecommendedItems;
+        results[6] = ogHits;
+        results[7] = ogRealRecommendedItems;
+        results[8] = maxRecommendedItems;
+        return results;
     }
     
     @Override
     public void getDescription(StringBuilder sb, int i) {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
-
-    public double[] getResults() {
-        Double prec = (((double)sumLCS)/((double)allItems));
-        Double prec2 = (((double)sumLCS)/((double)realRecommendedItems));
-        Double ma = getAvg();
-        double[] results = new double[10];
-        results[0] = prec; results[1] = ma; results[2] = sumLCS; results[3] = allItems; results[4] = realRecommendedItems;
-        results[5] = prec2;
-        results[6] = this.allHitsFromGlobal;
-        results[7] = this.allHitsFromGroup;
-        results[8] = this.numberOfSuccessfullyRecommendedSessions;
-        results[9] = this.numberOfRecommendedSessions;
-        return results;
-    }
-
-    public int getAllItems() {
-        return allItems;
-    }
-
-    public double getSumWindow() {
-        return sumWindow;
-    }
-
+    
     public void addResult(Example testInst, double[] recommendations, int windowSize, int numberOfRecommendedItems, double transsec) {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
-    
-    
-    
 
     
 }

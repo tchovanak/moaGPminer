@@ -8,6 +8,7 @@ import java.util.*;
 import com.yahoo.labs.samoa.instances.SparseInstance;
 import com.yahoo.labs.samoa.instances.Instance;
 import java.util.concurrent.ConcurrentHashMap;
+import moa.utils.MapUtil;
 /**
  *
  * @author Tomas
@@ -16,9 +17,11 @@ public class UserModel {
 
     private int id = -1;
     private Map<Integer,Double> pageVisitsMap = new ConcurrentHashMap<Integer,Double>();
+    private Map<Integer,Double> distancesToGroups = new ConcurrentHashMap<Integer,Double>();
     private int numberOfChanges = 0;
     private double groupid = 0;
     private double distance = 0;
+    private boolean sorted = false;
     
     
     public int getId() {
@@ -48,6 +51,18 @@ public class UserModel {
     public double getGroupid() {
         return groupid;
     }
+    
+    public void addGroup(Double groupid, Double distance){
+        this.distancesToGroups.put((Integer)((int)Math.round(groupid)), distance);
+    }
+    
+    public void clearGroupids() {
+        this.sorted = false;
+        this.distancesToGroups.clear();
+    }
+    
+    
+    
 
     public void setGroupid(Double groupid) {
         if(this.groupid != groupid && groupid != -1 && groupid != null){
@@ -114,6 +129,22 @@ public class UserModel {
             }
         }
     }
+
+    private void sortGroupids() { 
+        this.distancesToGroups = MapUtil.sortByValue(this.distancesToGroups);
+        this.sorted = true;
+    }
+    
+    public List<Integer> getGroupids() {
+        this.sortGroupids();
+        List<Integer> groupids = new ArrayList<Integer>();
+        for(Map.Entry gid : this.distancesToGroups.entrySet()){
+            groupids.add((Integer)gid.getKey());
+        }
+        return groupids;
+    }
+
+    
 
     
     

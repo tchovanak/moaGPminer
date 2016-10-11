@@ -243,7 +243,7 @@ public class IncMine2 extends AbstractLearner implements Observer {
 
         //for each FCI in the last segment in size ascending order
         for(SemiFCI fci: semiFCIs) {
-            if(fciTable.size() > Configuration.MAX_SEMI_FCI_SET_COUNT){
+            if(fciTable.size() > Configuration.MAX_FCI_SET_COUNT){
                 break;
             }
             if(this.getUpdateTime()/1e6 > Configuration.MAX_UPDATE_TIME){

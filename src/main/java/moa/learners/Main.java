@@ -27,7 +27,7 @@ public class Main {
         learner.fixedSegmentLengthOption.setValue(100);
         learner.maxItemsetLengthOption.setValue(20);
         learner.windowSizeOption.setValue(1);
-        learner.numPages.setValue(2080);
+        learner.maxNumPages.setValue(2080);
         learner.numMinNumberOfChangesInUserModel.setValue(15);
         learner.numMinNumberOfMicroclustersUpdates.setValue(100);
         learner.evaluationWindowSizeOption.setValue(2);
