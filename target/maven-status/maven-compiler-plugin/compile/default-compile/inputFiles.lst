@@ -1,11 +1,11 @@
 G:\workspace_GPMiner\moa-gpmine\MoaGPminer\src\main\java\moa\utils\LCS.java
 G:\workspace_GPMiner\moa-gpmine\MoaGPminer\src\main\java\moa\learners\AbstractLearner.java
-G:\workspace_GPMiner\moa-gpmine\MoaGPminer\src\main\java\moa\utils\GridSearchEvaluator.java
 G:\workspace_GPMiner\moa-gpmine\MoaGPminer\src\main\java\Charm_BitSet\Context.java
-G:\workspace_GPMiner\moa-gpmine\MoaGPminer\src\main\java\moa\utils\Parameter.java
+G:\workspace_GPMiner\moa-gpmine\MoaGPminer\src\main\java\moa\tasks\GridSearchFCIValueEvaluator.java
 G:\workspace_GPMiner\moa-gpmine\MoaGPminer\src\main\java\Charm_BitSet\AlgoCharm_Bitset.java
 G:\workspace_GPMiner\moa-gpmine\MoaGPminer\src\main\java\Charm_BitSet\HashTable.java
 G:\workspace_GPMiner\moa-gpmine\MoaGPminer\src\main\java\moa\clusterers\KMeans.java
+G:\workspace_GPMiner\moa-gpmine\MoaGPminer\src\main\java\moa\utils\SortStrategiesEnum.java
 G:\workspace_GPMiner\moa-gpmine\MoaGPminer\src\main\java\moa\core\SemiFCIid.java
 G:\workspace_GPMiner\moa-gpmine\MoaGPminer\src\main\java\moa\clusterers\CobWeb.java
 G:\workspace_GPMiner\moa-gpmine\MoaGPminer\src\main\java\moa\learners\GroupCounter.java
@@ -23,6 +23,7 @@ G:\workspace_GPMiner\moa-gpmine\MoaGPminer\src\main\java\moa\learners\UserModel.
 G:\workspace_GPMiner\moa-gpmine\MoaGPminer\src\main\java\moa\learners\PatternsMine_Clustree.java
 G:\workspace_GPMiner\moa-gpmine\MoaGPminer\src\main\java\moa\learners\PatternsMine2.java
 G:\workspace_GPMiner\moa-gpmine\MoaGPminer\src\main\java\moa\clusterers\clustream\ClustreamKernel.java
+G:\workspace_GPMiner\moa-gpmine\MoaGPminer\src\main\java\moa\tasks\Parameter.java
 G:\workspace_GPMiner\moa-gpmine\MoaGPminer\src\main\java\moa\core\ObserverParamWrapper.java
 G:\workspace_GPMiner\moa-gpmine\MoaGPminer\src\main\java\moa\clusterers\Clusterer.java
 G:\workspace_GPMiner\moa-gpmine\MoaGPminer\src\main\java\moa\streams\ZakiFileStream.java
@@ -45,6 +46,7 @@ G:\workspace_GPMiner\moa-gpmine\MoaGPminer\src\main\java\moa\evaluation\Learning
 G:\workspace_GPMiner\moa-gpmine\MoaGPminer\src\main\java\moa\tasks\LearnModel.java
 G:\workspace_GPMiner\moa-gpmine\MoaGPminer\src\main\java\moa\tasks\LearnEvaluateModel.java
 G:\workspace_GPMiner\moa-gpmine\MoaGPminer\src\main\java\moa\cluster\Cluster.java
+G:\workspace_GPMiner\moa-gpmine\MoaGPminer\src\main\java\moa\utils\RecommendStrategiesEnum.java
 G:\workspace_GPMiner\moa-gpmine\MoaGPminer\src\main\java\moa\clusterers\AbstractClusterer.java
 G:\workspace_GPMiner\moa-gpmine\MoaGPminer\src\main\java\moa\cluster\SphereCluster.java
 G:\workspace_GPMiner\moa-gpmine\MoaGPminer\src\main\java\moa\utils\Configuration.java
@@ -52,5 +54,6 @@ G:\workspace_GPMiner\moa-gpmine\MoaGPminer\src\main\java\moa\streams\SessionsFil
 G:\workspace_GPMiner\moa-gpmine\MoaGPminer\src\main\java\moa\learners\IncMine2.java
 G:\workspace_GPMiner\moa-gpmine\MoaGPminer\src\main\java\moa\evaluation\PatternsRecommendationEvaluator.java
 G:\workspace_GPMiner\moa-gpmine\MoaGPminer\src\main\java\moa\core\Utilities.java
+G:\workspace_GPMiner\moa-gpmine\MoaGPminer\src\main\java\moa\tasks\GridSearchEvaluator.java
 G:\workspace_GPMiner\moa-gpmine\MoaGPminer\src\main\java\moa\core\Segment.java
 G:\workspace_GPMiner\moa-gpmine\MoaGPminer\src\main\java\moa\core\FixedLengthWindowManager.java

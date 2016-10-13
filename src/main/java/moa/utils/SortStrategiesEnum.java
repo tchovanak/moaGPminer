@@ -32,5 +32,8 @@ public enum SortStrategiesEnum {
     public static SortStrategiesEnum valueOf(int stratNo) {
         return map.get(stratNo);
     }
-
+    
+    public int value() {
+        return stratNo;
+    }
 }

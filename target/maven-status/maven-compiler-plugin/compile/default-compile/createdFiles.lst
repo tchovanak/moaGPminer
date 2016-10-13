@@ -1,6 +1,5 @@
 moa\learners\Main.class
 moa\clusterers\AbstractClusterer.class
-moa\utils\GridSearchEvaluator.class
 moa\cluster\Clustering.class
 moa\learners\PatternsMine2.class
 moa\learners\GroupCounter.class
@@ -22,7 +21,9 @@ Charm_BitSet\Context.class
 moa\learners\PatternsMine_Clustree.class
 Charm_BitSet\AlgoCharm_Bitset.class
 moa\clusterers\clustream\ClustreamKernel.class
+moa\utils\RecommendStrategiesEnum.class
 Charm_BitSet\HashTable.class
+moa\learners\PatternsMine3$1.class
 moa\core\InvertedFCIIndex$IDArrayList.class
 moa\cluster\Miniball.class
 moa\core\SemiFCI.class
@@ -34,7 +35,6 @@ moa\learners\AbstractLearner.class
 moa\utils\LCS.class
 moa\tasks\LearnEvaluateBehaviourPatterns.class
 moa\core\ObserverParamWrapper.class
-moa\utils\Parameter.class
 moa\core\Utilities.class
 moa\tasks\LearnEvaluateModel.class
 moa\cluster\Miniball$pvt.class
@@ -55,9 +55,13 @@ moa\learners\PatternsMine.class
 moa\core\FCITable.class
 Charm_BitSet\ITSearchTree.class
 Charm_BitSet\AlgoCharm_Bitset$1.class
+moa\utils\SortStrategiesEnum.class
+moa\tasks\GridSearchEvaluator.class
 moa\clusterers\clustream\Clustream.class
 moa\cluster\SphereCluster.class
+moa\tasks\Parameter.class
 moa\core\FCITable$FCIArray$FCIArrayIterator.class
+moa\tasks\GridSearchFCIValueEvaluator.class
 moa\streams\SessionsFileStream.class
 moa\core\InvertedFCIIndex.class
 moa\clusterers\clustream\WithKmeans.class

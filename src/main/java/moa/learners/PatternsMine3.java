@@ -143,6 +143,9 @@ public class PatternsMine3 extends AbstractLearner implements Observer {
         this.clusterer.maxNumKernelsOption.setValue(100);
         this.clusterer.kernelRadiFactorOption.setValue(2);
         this.clusterer.resetLearning();
+        usermodels.clear();
+        usermodels = new ConcurrentHashMap<Integer, UserModel>();
+        System.gc(); // force garbage collection
     }
     
     @Override
@@ -215,9 +218,7 @@ public class PatternsMine3 extends AbstractLearner implements Observer {
             window.add((int) Math.round(sessionArray.get(i)));
         }
         // maximum number of evaluated future items is the same as number of recommended items.
-        for(int i = evaluationWindowSize + 2, j = 0; 
-            i < sessionArray.size();
-            i++){
+        for(int i = evaluationWindowSize + 2, j = 0; i < sessionArray.size(); i++){
             outOfWindow.add((int) Math.round(sessionArray.get(i)));
         }
         List<Integer> recommendations = new ArrayList<>();
@@ -239,7 +240,7 @@ public class PatternsMine3 extends AbstractLearner implements Observer {
                 double approximateSupport = (double)fci.getApproximateSupport();
                 double support = 
                        approximateSupport/
-                        ((double)(this.fixedSegmentLengthOption.getValue()));
+                        ((double)(this.fixedSegmentLengthOption.getValue()))*((double)(this.windowSizeOption.getValue()));
                 if(support < this.minSupportOption.getValue()){
                     continue;
                 }
@@ -279,7 +280,7 @@ public class PatternsMine3 extends AbstractLearner implements Observer {
                         double approximateSupport = (double)fci.getApproximateSupport();
                         double support = 
                                approximateSupport/
-                                ((double)(this.groupFixedSegmentLengthOption.getValue()));
+                                ((double)(this.fixedSegmentLengthOption.getValue()))*((double)(this.windowSizeOption.getValue()));
                         if(support < this.minSupportOption.getValue()){
                             continue;
                         }
@@ -296,7 +297,6 @@ public class PatternsMine3 extends AbstractLearner implements Observer {
                 
 //            }
         }
-
         
         // another solution every time take best 2 patterns from group and from global
         // prefer items that are both in global and group pattern.
@@ -573,8 +573,13 @@ public class PatternsMine3 extends AbstractLearner implements Observer {
         recsCombined = new ArrayList<Integer>();
         recsGlobal = new ArrayList<Integer>();
         recsGroup = new ArrayList<Integer>();
+        recsOnlyFromGlobal = new ArrayList<Integer>();
+        recsOnlyFromGroup = new ArrayList<Integer>();
+        recsGroup = new ArrayList<Integer>();
         int numRecommendedItems = this.numberOfRecommendedItemsOption.getValue();
         cntAll = 0;
+        cntOnlyGlobal = 0;
+        cntOnlyGroup = 0;
         for(Map.Entry<Integer,Double> e : mapItemsVotes.entrySet()) {
             Integer item = e.getKey();
             recsCombined.add(item);
@@ -585,11 +590,19 @@ public class PatternsMine3 extends AbstractLearner implements Observer {
         }
         for(Map.Entry<Integer,Double> e : mapItemsVotesOnlyGlobal.entrySet()) {
             Integer item = e.getKey();
-            recsGlobal.add(item);    
+            recsOnlyFromGlobal.add(item);
+            cntOnlyGlobal++;
+            if(cntOnlyGlobal >= numRecommendedItems){
+                break;
+            } 
         }
         for(Map.Entry<Integer,Double> e : mapItemsVotesOnlyGroup.entrySet()) {
             Integer item = e.getKey();
-            recsGroup.add(item);    
+            recsOnlyFromGroup.add(item); 
+            cntOnlyGroup++;
+            if(cntOnlyGroup >= numRecommendedItems){
+                break;
+            } 
         }
         
     }

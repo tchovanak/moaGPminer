@@ -32,5 +32,9 @@ public enum RecommendStrategiesEnum {
     public static RecommendStrategiesEnum valueOf(int stratNo) {
         return map.get(stratNo);
     }
+    
+    public int value() {
+        return stratNo;
+    }
 
 }

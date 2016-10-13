@@ -43,10 +43,11 @@ public class GridSearchEvaluator extends MainTask {
     private boolean grouping = false;
     private boolean faster  = false;
     private boolean fasterWithoutGrouping = false;
-    private double[] lastparams = new double[11];  //ms, rr, fsl, mncum, mnmu // if any of these isnt changed it cant be faster 
+    private double[] lastparams = new double[21];  //ms, rr, fsl, mncum, mnmu // if any of these isnt changed it cant be faster 
     private FileWriter writer = null;
     private String pathToSummaryOutputFile = null;
     private String pathToOutputFile = null;
+    private double changed = 0;
     
     public GridSearchEvaluator(int fromid) {
         this.fromid = fromid;
@@ -58,6 +59,7 @@ public class GridSearchEvaluator extends MainTask {
         if(fromid >= id){
             return;
         }
+        findChangeInParams(params);
         /*
             if there was raised flag in previous evaluation that parameter configuration
             is too slow, then this condition is used to check if any of desired 
@@ -91,10 +93,12 @@ public class GridSearchEvaluator extends MainTask {
         }
         
         // initialize and configure learner
-        PatternsMine3 learner = new PatternsMine3();
-        configureLearnerWithParams(learner, params);
         
+        PatternsMine3 learner = new PatternsMine3();
+        double originalFCISETCOUNT = Configuration.MAX_FCI_SET_COUNT;
+        double originalUPDATETIME = Configuration.MAX_UPDATE_TIME;
         for(int i = 0; i < 2; i++){
+            configureLearnerWithParams(learner, params);
             this.stream = new SessionsFileStream(this.pathToStream);
             writeConfigurationToFile(this.pathToSummaryOutputFile, learner);
             learner.useGroupingOption.setValue(grouping); // change grouping option in learner
@@ -111,6 +115,7 @@ public class GridSearchEvaluator extends MainTask {
             double transsec = 0.0;
             int windowSize = learner.evaluationWindowSizeOption.getValue();
             int numberOfRecommendedItems = learner.numberOfRecommendedItemsOption.getValue();
+            updateLastParams(learner);
             while (stream.hasMoreInstances()) {
                 counter++;
                 Example trainInst = stream.nextInstance();
@@ -122,6 +127,11 @@ public class GridSearchEvaluator extends MainTask {
                 //long end = System.nanoTime();
                 double tp =((double)(end - start) / 1e9);
                 transsec = counter/tp;
+                // SPEED CONTROL PART
+                if(transsec < Configuration.MIN_TRANSSEC * 10){
+                    Configuration.MAX_FCI_SET_COUNT = originalFCISETCOUNT * (transsec/((Configuration.DESIRED_TRANSSEC)*2));
+                    Configuration.MAX_UPDATE_TIME = originalUPDATETIME * (transsec/((Configuration.DESIRED_TRANSSEC)*2));
+                }
                 if(counter % learner.fixedSegmentLengthOption.getValue() == 0){
                     System.out.println(counter); // to see progress
                     if(transsec < Configuration.MIN_TRANSSEC){
@@ -153,7 +163,8 @@ public class GridSearchEvaluator extends MainTask {
                 grouping = true;
             }
         }
-        updateLastParams(learner);
+        System.gc();
+        
         
     }
     
@@ -217,27 +228,16 @@ public class GridSearchEvaluator extends MainTask {
     }
     
     
+    
     private boolean checkLastParamsForNotGroupingChange(List<Parameter> params){
-        if(lastparams[0] != params.get(0).getValue()  //minSupport   
-            || lastparams[1] != params.get(1).getValue() //relaxationRate
-            || lastparams[2] != params.get(2).getValue() //fixedSegmentLength
-            || lastparams[3] != params.get(3).getValue() //maxItemsetLength
-            || lastparams[4] != params.get(4).getValue() //windowSize
-            || lastparams[5] != params.get(5).getValue() //numPages
-            || lastparams[6] != params.get(6).getValue() //evaluationWindowSize
-            || lastparams[7] != params.get(7).getValue() //numOfRecommendedItems
-        ){ // params were changed so try with and without grouping, if other params are changed only try with grouping
-            return true;
-        }else{
-            return false;
-        }
+        return changed >= 0 && changed <= 15; // params were changed so try with and without grouping, if other params are changed only try with grouping
         
     }
     
     private boolean checkLastParamsForFasterWithoutGroupingConfiguration(List<Parameter> params){
-        if(lastparams[0] >= params.get(0).getValue()  //minSupport   
-            && lastparams[1] >= params.get(1).getValue() //relaxationRate
-            && lastparams[2] >= params.get(2).getValue() //fixedSegmentLength
+        if(lastparams[4] >= params.get(4).getValue()  //minSupport   
+            && lastparams[5] >= params.get(5).getValue() //relaxationRate
+            && lastparams[6] >= params.get(6).getValue() //fixedSegmentLength
         )
         { // params werent changed to better
             return true;
@@ -247,11 +247,12 @@ public class GridSearchEvaluator extends MainTask {
     }
     
     private boolean checkLastParamsForFasterConfiguration(List<Parameter> params){
-        if(lastparams[0] >= params.get(0).getValue()  //minSupport
-            && lastparams[1] >= params.get(1).getValue() //relaxationRate
-            && lastparams[2] >= params.get(2).getValue() //fixedSegmentLength
-            && lastparams[8] >= params.get(8).getValue() //minNumOfChangesInUserModel
-            && lastparams[9] >= params.get(9).getValue()) //minNumOfChangesInMicrocluster
+        if(
+            lastparams[4] >= params.get(4).getValue()  //minSupport
+            && lastparams[5] >= params.get(5).getValue() //relaxationRate
+            && lastparams[6] >= params.get(6).getValue() //fixedSegmentLength
+            && lastparams[16] >= params.get(16).getValue() //minNumOfChangesInUserModel
+            && lastparams[17] >= params.get(17).getValue()) //minNumOfChangesInMicrocluster
         { // params werent changed to better
             return true;
         }else{
@@ -281,18 +282,19 @@ public class GridSearchEvaluator extends MainTask {
         }
         learner.maxItemsetLengthOption.setValue((int) params.get(8).getValue());
         learner.windowSizeOption.setValue((int) params.get(9).getValue());
-        // CLUSTERING PARAMETERS
-        learner.numMinNumberOfChangesInUserModel.setValue((int) params.get(10).getValue());
-        learner.numMinNumberOfMicroclustersUpdates.setValue((int) params.get(11).getValue());
-        learner.numberOfGroupsOption.setValue((int) params.get(12).getValue());
-        learner.maxNumKernelsOption.setValue((int) params.get(13).getValue());
-        learner.kernelRadiFactorOption.setValue((int) params.get(14).getValue());
         // RESTRICTIONS PARAMETERS
-        learner.maxNumPages.setValue((int) params.get(15).getValue());
-        learner.maxNumUserModels.setValue((int) params.get(16).getValue());
-        Configuration.MAX_FCI_SET_COUNT = params.get(17).getValue();
-        Configuration.MIN_TRANSSEC = params.get(18).getValue();
-        Configuration.MAX_UPDATE_TIME = params.get(19).getValue();
+        learner.maxNumPages.setValue((int) params.get(10).getValue());
+        learner.maxNumUserModels.setValue((int) params.get(11).getValue());
+        Configuration.MAX_FCI_SET_COUNT = params.get(12).getValue();
+        Configuration.DESIRED_TRANSSEC = params.get(13).getValue();
+        Configuration.MIN_TRANSSEC = params.get(14).getValue();
+        Configuration.MAX_UPDATE_TIME = params.get(15).getValue();
+        // CLUSTERING PARAMETERS
+        learner.numMinNumberOfChangesInUserModel.setValue((int) params.get(16).getValue());
+        learner.numMinNumberOfMicroclustersUpdates.setValue((int) params.get(17).getValue());
+        learner.numberOfGroupsOption.setValue((int) params.get(18).getValue());
+        learner.maxNumKernelsOption.setValue((int) params.get(19).getValue());
+        learner.kernelRadiFactorOption.setValue((int) params.get(20).getValue());
         
     }
     
@@ -313,18 +315,19 @@ public class GridSearchEvaluator extends MainTask {
                 writer.append("FPM:GROUP FIXED SEGMENT LENGTH");writer.append(',');
                 writer.append("FPM:MAX ITEMSET LENGTH");writer.append(',');
                 writer.append("FPM:WINDOW SIZE");writer.append(',');
+                // UNIVERSAL PARAMETERS - RESTRICTIONS
+                writer.append("RES:MAX NUM PAGES");writer.append(',');
+                writer.append("RES:MAX NUM USER MODELS");writer.append(',');
+                writer.append("RES:FCI SET COUNT");writer.append(',');
+                writer.append("RES:DESIRED TRANSACTIONS PER SECOND");writer.append(',');
+                writer.append("RES:MIN TRANSACTIONS PER SECOND");writer.append(',');
+                writer.append("RES:UPDATE TIME");writer.append(',');
                 // CLUSTERING PARAMETERS
                 writer.append("CLU:MIN NUM OF CHANGES IN USER MODEL");writer.append(',');
                 writer.append("CLU:MIN NUM OF CHANGES IN MICROCLUSTERS");writer.append(',');
                 writer.append("CLU:NUM OF GROUPS");writer.append(',');
                 writer.append("CLU:NUM OF MICROKERNELS");writer.append(',');
                 writer.append("CLU:KERNEL RADI FACTOR");writer.append(',');
-                // UNIVERSAL PARAMETERS - RESTRICTIONS
-                writer.append("RES:MAX NUM PAGES");writer.append(',');
-                writer.append("RES:MAX NUM USER MODELS");writer.append(',');
-                writer.append("RES:MAX FCI SET COUNT");writer.append(',');
-                writer.append("RES:MIN TRANSACTIONS PER SECOND");writer.append(',');
-                writer.append("RES:MAX UPDATE TIME");writer.append(',');
                 // RESULTS 
                 writer.append("GG: HITS FROM GLOBAL");writer.append(',');
                 writer.append("GG: HITS FROM GROUP");writer.append(',');
@@ -359,9 +362,16 @@ public class GridSearchEvaluator extends MainTask {
             writer.append(((Double)learner.minSupportOption.getValue()).toString());writer.append(',');
             writer.append(((Double)learner.relaxationRateOption.getValue()).toString());writer.append(',');
             writer.append(((Double)(double)learner.fixedSegmentLengthOption.getValue()).toString());writer.append(',');
+            writer.append(((Double)(double)learner.groupFixedSegmentLengthOption.getValue()).toString());writer.append(',');
             writer.append(((Double)(double)learner.maxItemsetLengthOption.getValue()).toString());writer.append(',');
             writer.append(((Double)(double)learner.windowSizeOption.getValue()).toString());writer.append(',');
-            writer.append(((Double)(double)learner.groupFixedSegmentLengthOption.getValue()).toString());writer.append(',');
+            //UNIVERSAL PARAMETERS
+            writer.append(((Double)(double)learner.maxNumPages.getValue()).toString());writer.append(',');
+            writer.append(((Double)(double)learner.maxNumUserModels.getValue()).toString());writer.append(',');
+            writer.append(((Double)Configuration.MAX_FCI_SET_COUNT).toString());writer.append(',');
+            writer.append(((Double)Configuration.DESIRED_TRANSSEC).toString());writer.append(',');
+            writer.append(((Double)Configuration.MIN_TRANSSEC).toString());writer.append(',');
+            writer.append(((Double)Configuration.MAX_UPDATE_TIME).toString());writer.append(',');
             // CLUSTERING PARAMETERS
             if(this.grouping){
                 writer.append(((Double)(double) learner.numMinNumberOfChangesInUserModel.getValue()).toString());writer.append(',');
@@ -376,11 +386,6 @@ public class GridSearchEvaluator extends MainTask {
                 writer.append("NG");writer.append(',');
                 writer.append("NG");writer.append(',');
             }
-            writer.append(((Double)(double)learner.maxNumPages.getValue()).toString());writer.append(',');
-            writer.append(((Double)(double)learner.maxNumUserModels.getValue()).toString());writer.append(',');
-            writer.append(((Double)Configuration.MAX_FCI_SET_COUNT).toString());writer.append(',');
-            writer.append(((Double)Configuration.MIN_TRANSSEC).toString());writer.append(',');
-            writer.append(((Double)Configuration.MAX_UPDATE_TIME).toString());writer.append(',');
             writer.flush();
          } catch (IOException ex) {
              Logger.getLogger(GridSearchEvaluator.class.getName()).log(Level.SEVERE, null, ex);
@@ -390,7 +395,7 @@ public class GridSearchEvaluator extends MainTask {
     private void writeResultsToFile(double[] results, double transsec, double tp, int counter){
         try{
             for(double res :results){
-                writer.append(((Double)res).toString());
+                writer.append(((Double)res).toString());writer.append(',');
             }
             writer.append(((Double)tp).toString());writer.append(',');
             writer.append(((Double)transsec).toString());writer.append(',');
@@ -400,19 +405,43 @@ public class GridSearchEvaluator extends MainTask {
             Logger.getLogger(GridSearchEvaluator.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
+    
+    private void findChangeInParams(List<Parameter> params){
+        changed = -1;
+        for(int i = 0; i < this.lastparams.length; i++){
+            if(i == 7){ // ignore group segment length
+                continue;
+            }
+            if(this.lastparams[i] != params.get(i).getValue()){changed = i; break;}
+        }
+    }
  
     private void updateLastParams(PatternsMine3 learner) {
-        this.lastparams[0] = learner.minSupportOption.getValue();
-        this.lastparams[1] = learner.relaxationRateOption.getValue();
-        this.lastparams[2] = learner.fixedSegmentLengthOption.getValue();
-        this.lastparams[3] = learner.maxItemsetLengthOption.getValue();
-        this.lastparams[4] = learner.windowSizeOption.getValue();
-        this.lastparams[5] = learner.maxNumPages.getValue();
-        this.lastparams[6] = learner.evaluationWindowSizeOption.getValue();
-        this.lastparams[7] = learner.numberOfRecommendedItemsOption.getValue();
-        this.lastparams[8] = learner.numMinNumberOfChangesInUserModel.getValue();
-        this.lastparams[9] = learner.numMinNumberOfMicroclustersUpdates.getValue();
-        this.lastparams[10] = learner.numberOfGroupsOption.getValue();
+        
+        this.lastparams[0] = Configuration.RECOMMEND_STRATEGY.value();
+        this.lastparams[1] = Configuration.SORT_STRATEGY.value();
+        this.lastparams[2] = learner.evaluationWindowSizeOption.getValue();
+        this.lastparams[3] = learner.numberOfRecommendedItemsOption.getValue();
+        
+        this.lastparams[4] = learner.minSupportOption.getValue();
+        this.lastparams[5] = learner.relaxationRateOption.getValue();
+        this.lastparams[6] = learner.fixedSegmentLengthOption.getValue();
+        this.lastparams[7] = learner.groupFixedSegmentLengthOption.getValue();
+        this.lastparams[8] = learner.maxItemsetLengthOption.getValue();
+        this.lastparams[9] = learner.windowSizeOption.getValue();
+        
+        this.lastparams[10] = learner.maxNumPages.getValue();
+        this.lastparams[11] = learner.maxNumUserModels.getValue();
+        this.lastparams[12] = (Double)Configuration.MAX_FCI_SET_COUNT;
+        this.lastparams[13] = (Double)Configuration.DESIRED_TRANSSEC;
+        this.lastparams[14] = (Double)Configuration.MIN_TRANSSEC;
+        this.lastparams[15] = (Double)Configuration.MAX_UPDATE_TIME;
+        
+        this.lastparams[16] = learner.numMinNumberOfChangesInUserModel.getValue();
+        this.lastparams[17] = learner.numMinNumberOfMicroclustersUpdates.getValue();
+        this.lastparams[18] = learner.numberOfGroupsOption.getValue();
+        this.lastparams[19] = learner.maxNumKernelsOption.getValue();
+        this.lastparams[20] = learner.kernelRadiFactorOption.getValue();
     }
 
     
