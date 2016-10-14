@@ -21,17 +21,19 @@ package moa.core;
 
 import java.io.Serializable;
 import java.util.*;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class FCITable implements Iterable<SemiFCI>, Serializable  {
     
     private static final long serialVersionUID = 1L;
 
-	protected class FCIArray implements Iterable<SemiFCI>, Serializable {
+    protected class FCIArray implements Iterable<SemiFCI>, Serializable {
     
         private static final long serialVersionUID = 4500840981452151513L;
         private ArrayList<SemiFCI> itemsets;
         private LinkedList<Integer> garbageQueue;
-        private ArrayList<Integer> goodPositions; //we store here the positions in the array containing a semiFCI to speedup iteration over the FCIArray
+        private HashSet<Integer> goodPositions; //we store here the positions in the array containing a semiFCI to speedup iteration over the FCIArray
         
         private int size; //local variable to store the real number of semiFCIs stored
         
@@ -40,9 +42,9 @@ public class FCITable implements Iterable<SemiFCI>, Serializable  {
         * of itemstes and an empty garbage queue.
         */
         public FCIArray() {
-            this.itemsets = new ArrayList<SemiFCI>();
-            this.garbageQueue = new LinkedList<Integer>();
-            this.goodPositions = new ArrayList<Integer>();
+            this.itemsets = new ArrayList<>();
+            this.garbageQueue = new LinkedList<>();
+            this.goodPositions = new HashSet<>();
             this.size = 0;
         }
 
@@ -57,19 +59,28 @@ public class FCITable implements Iterable<SemiFCI>, Serializable  {
 
             if(!this.garbageQueue.isEmpty()){
                 pos = garbageQueue.poll();
-                itemset.getId().setPosition(pos);
-                this.itemsets.set(pos,itemset);
+                itemset.getIdOriginal().setPosition(pos);
+                try {
+                    this.itemsets.set(pos, (SemiFCI) itemset.clone());
+                } catch (CloneNotSupportedException ex) {
+                    Logger.getLogger(FCITable.class.getName()).log(Level.SEVERE, null, ex);
+                }
             }else{
                 pos = this.itemsets.size();
-                itemset.getId().setPosition(pos);
-                this.itemsets.add(itemset);
+                itemset.getIdOriginal().setPosition(pos);
+                try {
+                    this.itemsets.add((SemiFCI) itemset.clone());
+                } catch (CloneNotSupportedException ex) {
+                    Logger.getLogger(FCITable.class.getName()).log(Level.SEVERE, null, ex);
+                }
             }
 
             this.size++;
-            this.goodPositions.add(new Integer(pos));
+            this.goodPositions.add(pos);
 //            this.goodPositionsIsSorted = false;
             
             return itemset.getId();
+            
         }
 
         /**
@@ -78,10 +89,10 @@ public class FCITable implements Iterable<SemiFCI>, Serializable  {
         */
         public void removeSemiFCI(int position) {
             //add this position to the garbage queue
-            //if(!this.garbageQueue.contains(position))
+            if(!this.garbageQueue.contains(position))
                 this.garbageQueue.add(position);
-                this.goodPositions.remove(new Integer(position));
-                this.itemsets.set(position, null); //free up memory associated to ne removed semiFCI
+            this.goodPositions.remove(position);
+            this.itemsets.set(position, null); //free up memory associated to ne removed semiFCI
             this.size--;
         }
 
@@ -94,7 +105,12 @@ public class FCITable implements Iterable<SemiFCI>, Serializable  {
         public SemiFCI getFCI(int position) {
 
             if(!this.garbageQueue.contains(position))
-                return this.itemsets.get(position);
+                try {
+                    return (SemiFCI) this.itemsets.get(position).clone();
+                } catch (CloneNotSupportedException ex) {
+                    Logger.getLogger(FCITable.class.getName()).log(Level.SEVERE, null, ex);
+                    return null;
+                }
             else
                 return null;
         }
@@ -131,19 +147,27 @@ public class FCITable implements Iterable<SemiFCI>, Serializable  {
 //            private boolean hasNextElement = false;
 //            private SemiFCI nextElement;
 
+            @Override
             public boolean hasNext() {
 //                checkForNextElement();
 //                return this.hasNextElement;
                 return this.goodPosIterator.hasNext();
             }
 
+            @Override
             public SemiFCI next() {
                 if(!this.hasNext()) throw new NoSuchElementException();
 //                return this.nextElement;
                 currentPosition = this.goodPosIterator.next();
-                return itemsets.get(currentPosition);
+                try {
+                    return (SemiFCI) ((SemiFCI) itemsets.get(currentPosition)).clone();
+                } catch (CloneNotSupportedException ex) {
+                    Logger.getLogger(FCITable.class.getName()).log(Level.SEVERE, null, ex);
+                    throw new NoSuchElementException();
+                }
             }
 
+            @Override
             public void remove() {
                 this.goodPosIterator.remove();
                 garbageQueue.add(currentPosition);
@@ -166,7 +190,7 @@ public class FCITable implements Iterable<SemiFCI>, Serializable  {
      */
     public FCITable() {
         this.maxFCISize = 0;
-        this.table = new HashMap<Integer, FCIArray>();
+        this.table = new HashMap<>();
         this.invertedIndex = new InvertedFCIIndex();
     }
 
@@ -184,13 +208,16 @@ public class FCITable implements Iterable<SemiFCI>, Serializable  {
         
         if(!this.table.containsKey(itemsetSize))
             this.table.put(itemsetSize, new FCIArray());
-        
-        this.table.get(itemsetSize).addSemiFCI(itemset);
-        this.invertedIndex.addSemiFCI(itemset);
+        try {
+            this.table.get(itemsetSize).addSemiFCI(itemset);
+            this.invertedIndex.addSemiFCI((SemiFCI) itemset.clone());
+        } catch (CloneNotSupportedException ex) {
+            Logger.getLogger(FCITable.class.getName()).log(Level.SEVERE, null, ex);
+        }
         
         this.nAdded++;
+        return itemset.getId();
         
-        return itemset.getId();       
         
     }
 
@@ -202,7 +229,9 @@ public class FCITable implements Iterable<SemiFCI>, Serializable  {
         
         this.invertedIndex.removeSemiFCI(getFCI(id));
         this.table.get(id.getDimension()).removeSemiFCI(id.getPosition());
-        
+        if(this.table.get(id.getDimension()).size() == 0){
+            this.table.remove(id.getDimension());
+        }
         this.nRemoved++;
     }
     
@@ -213,11 +242,18 @@ public class FCITable implements Iterable<SemiFCI>, Serializable  {
     public void removeSemiFCI(SemiFCIid id, Iterator<SemiFCI> iter) {
         
         this.invertedIndex.removeSemiFCI(getFCI(id));
-//        this.table.get(id.getDimension()).removeSemiFCI(id.getPosition());
+        //this.table.get(id.getDimension()).removeSemiFCI(id.getPosition());
         iter.remove();
         this.nRemoved++;
     }
 
+    public void clearTable(){
+        this.table.clear();
+        this.nAdded = 0;
+        this.nRemoved = 0;
+        this.invertedIndex.clearIndex();
+    }
+    
     /**
      * Returns the instance of the semiFCI associated to the passed id.
      * @param id id of the semiFCI
@@ -297,7 +333,9 @@ public class FCITable implements Iterable<SemiFCI>, Serializable  {
                         //use support information to check closure property
                         if(sfsCandidate.getApproximateSupport(sfsCandidate.getKValue())==
                             fci.getApproximateSupport(sfsCandidate.getKValue()))
+                        
                         return sfsCandidate.getId();
+                       
                     }
                 }
             }

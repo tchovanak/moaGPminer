@@ -23,7 +23,10 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import moa.learners.IncMine2;
+import com.rits.cloning.Cloner;
 /*
     (Tomas Chovanak) No change
 */
@@ -43,9 +46,9 @@ public class SemiFCI implements Comparable<SemiFCI>,Serializable {
      * @param currentSupport current support 
      */
     public SemiFCI(List<Integer> itemset, int currentSupport) {
-        
-        this.items = itemset;
-        Collections.sort(itemset);
+        Cloner cloner=new Cloner();
+        items = cloner.deepClone(itemset);
+        Collections.sort(items);
         
         this.id = new SemiFCIid(items.size(), -1);
         this.supports = new int[IncMine2.windowSize];
@@ -55,7 +58,21 @@ public class SemiFCI implements Comparable<SemiFCI>,Serializable {
         this.supports[0] = currentSupport;
         this.k = 0;
     }
-
+    
+    @Override
+    public Object clone() throws CloneNotSupportedException {
+        Cloner cloner=new Cloner();
+        SemiFCI clone = new SemiFCI(cloner.deepClone(this.items), this.supports[0]);
+        clone.setId((SemiFCIid) this.id.clone());
+        int[] cloneSupports = this.supports.clone();
+        boolean cloneUpdated = this.updated;
+        int cloneK = this.k;
+        clone.setSupports(cloneSupports);
+        clone.setUpdated(cloneUpdated);
+        clone.setK(cloneK);
+        return clone;
+    }
+    
     /**
      * Returns the itemset of this semiFCI
      * @return the copy of the set of items stored
@@ -132,7 +149,7 @@ public class SemiFCI implements Comparable<SemiFCI>,Serializable {
      * @return the supports
      */
     public int[] getSupports() {
-        return supports;
+        return supports.clone();
     }
 
     /**
@@ -146,9 +163,23 @@ public class SemiFCI implements Comparable<SemiFCI>,Serializable {
      * @return the id
      */
     public SemiFCIid getId() {
-        return id;
+        try {
+            return (SemiFCIid) id.clone();
+        } catch (CloneNotSupportedException ex) {
+            Logger.getLogger(SemiFCI.class.getName()).log(Level.SEVERE, null, ex);
+            return null;
+        }
     }
 
+     /**
+     * @return the id
+     */
+    public SemiFCIid getIdOriginal() {
+        
+        return id;
+        
+    }
+    
     /**
      * @param id the id to set
      */
@@ -212,7 +243,7 @@ public class SemiFCI implements Comparable<SemiFCI>,Serializable {
     * @return sum of the supports
     */
     public int getApproximateSupport(){
-        return Utilities.cumSum(supports, supports.length-1);
+        return Utilities.cumSum(supports.clone(), supports.length-1);
     }
     
     /**
@@ -223,7 +254,7 @@ public class SemiFCI implements Comparable<SemiFCI>,Serializable {
      * @return sum of the supports
      */
     public int getApproximateSupport(int k) {
-        return Utilities.cumSum(supports, k);
+        return Utilities.cumSum(supports.clone(), k);
     }
     
     @Override
@@ -241,4 +272,15 @@ public class SemiFCI implements Comparable<SemiFCI>,Serializable {
         
         return sb.toString();
     }
+
+    public void setK(int k) {
+        this.k = k;
+    }
+
+   
+
+   
+    
+    
+    
 }

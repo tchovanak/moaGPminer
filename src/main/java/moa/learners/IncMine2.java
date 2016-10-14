@@ -28,6 +28,7 @@ import com.yahoo.labs.samoa.instances.Prediction;
 import com.yahoo.labs.samoa.instances.Instance;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import moa.tasks.GridSearchEvaluator;
 import moa.utils.Configuration;
 
 
@@ -66,6 +67,7 @@ public class IncMine2 extends AbstractLearner implements Observer {
     private double relaxationRateOption;
     private int fixedSegmentLengthOption;
     private int groupFixedSegmentLengthOption;
+    private int counter = 0;
 
     
     public IncMine2(int windowSizeOption,int maxItemsetLengthOption,
@@ -121,7 +123,7 @@ public class IncMine2 extends AbstractLearner implements Observer {
 
         this.swmGlobal = new FixedLengthWindowManager(min_sup, this.maxItemsetLengthOption, this.fixedSegmentLengthOption);
         this.swmGlobal.deleteObservers();
-        this.swmGlobal.addObserver(this);  
+        this.swmGlobal.addObserver(this);
         this.swmGroups = new ArrayList<SlidingWindowManager>();
         
         double groupMinSupport = min_sup;
@@ -136,8 +138,8 @@ public class IncMine2 extends AbstractLearner implements Observer {
 
     @Override
     public void trainOnInstanceImpl(Instance inst) {
-        this.swmGlobal.addInstance(inst);
-        this.swmGroups.get((int)inst.value(0)).addInstance(inst); // on index 0 there should be group id prepended before session data
+        this.swmGlobal.addInstance(inst.copy());
+        this.swmGroups.get((int)inst.value(0)).addInstance(inst.copy()); // on index 0 there should be group id prepended before session data
     }
     
     @Override
@@ -148,9 +150,9 @@ public class IncMine2 extends AbstractLearner implements Observer {
         }
         int groupid = (int)inst.value(0);// on index 0 there should be group id prepended before session data
         if(groupid > -1){
-            this.swmGroups.get(groupid).addInstance(inst); 
+            this.swmGroups.get(groupid).addInstance(inst.copy()); 
         }else{
-            this.swmGlobal.addInstance(inst);
+            this.swmGlobal.addInstance(inst.copy());
         }
         
     }
@@ -190,7 +192,8 @@ public class IncMine2 extends AbstractLearner implements Observer {
      * @param arg
      */
     public void update(Observable o, Object arg) {
-        
+        counter++;
+        SlidingWindowManager swm = (SlidingWindowManager) o;
         ObserverParamWrapper param = (ObserverParamWrapper) arg;
         int groupid = param.getGroupid();
         FCITable fciTable = null;
@@ -208,17 +211,22 @@ public class IncMine2 extends AbstractLearner implements Observer {
 
         this.minsup = Utilities.getIncMineMinSupportVector(sigma,r,windowSize,lastSegmentLenght);
         List<SemiFCI> semiFCIs = null;
-        
         try {
-            if(groupid == -1){
-                semiFCIs = this.swmGlobal.getFCI();
-            }else{
-                semiFCIs = this.swmGroups.get(groupid).getFCI();
-            }
+            semiFCIs = swm.getFCI();
         } catch (Exception ex) {
             Logger.getLogger(IncMine2.class.getName()).log(Level.SEVERE, null, ex);
-            return;
         }
+        
+//        try {
+//            if(groupid == -1){
+//                semiFCIs = this.swmGlobal.getFCI();
+//            }else{
+//                semiFCIs = this.swmGroups.get(groupid).getFCI();
+//            }
+//        } catch (Exception ex) {
+//            Logger.getLogger(IncMine2.class.getName()).log(Level.SEVERE, null, ex);
+//            return;
+//        }
         
 //        //iterate in size-descending order over the entire FCITable to remove unfrequent semiFCIs
 //        for(Iterator<SemiFCI> iter =  fciTable.iterator(); iter.hasNext(); ) {
@@ -242,13 +250,18 @@ public class IncMine2 extends AbstractLearner implements Observer {
 //        }  
 
         //for each FCI in the last segment in size ascending order
-        for(SemiFCI fci: semiFCIs) {
-            if(fciTable.size() > Configuration.MAX_FCI_SET_COUNT){
-                break;
+        for(SemiFCI fciOrig: semiFCIs) {
+            SemiFCI fci = null;
+            try {
+                fci = (SemiFCI) fciOrig.clone();
+            } catch (CloneNotSupportedException ex) {
+                Logger.getLogger(IncMine2.class.getName()).log(Level.SEVERE, null, ex);
             }
-            if(this.getUpdateTime()/1e6 > Configuration.MAX_UPDATE_TIME){
+            double ms = this.getUpdateTime()/1e6;
+            
+            if(ms > Configuration.MAX_UPDATE_TIME){
                 System.out.println("OUT OF TIME");
-                return;
+                break;
             }
             if(fci.getItems().size() == 1){
                 continue;
@@ -276,7 +289,6 @@ public class IncMine2 extends AbstractLearner implements Observer {
                         fci.setSupports(fciSupVector);
                     }
                 }
-                //add a new entry to the table and update the inverted index
                 fciId = fciTable.addSemiFCI(fci);
                 computeK(fciId, 0, fciTable);
             }
@@ -312,7 +324,7 @@ public class IncMine2 extends AbstractLearner implements Observer {
 
         }       
                 
-        
+        semiFCIs.clear();
         double ms = this.getUpdateTime()/1e6;
        
         System.out.println("Update done in " + this.getUpdateTime()/1e6 + " ms.");
@@ -334,8 +346,8 @@ public class IncMine2 extends AbstractLearner implements Observer {
             FCITable fciTable)
     {
         
-        List<Subset> subList = new ArrayList<Subset>();
-        List<Integer> blackList = new ArrayList<Integer>();
+        List<Subset> subList = new ArrayList<>();
+        List<Integer> blackList = new ArrayList<>();
         
         for(int removeIndex = origSubset.startIndex; removeIndex < origSubset.itemset.size(); removeIndex++) {
             if(skipList.contains(removeIndex)) { //don't process subsets of an already updated SemiFCI
@@ -344,7 +356,7 @@ public class IncMine2 extends AbstractLearner implements Observer {
             }
 
             //create subset
-            List<Integer> reducedItemset = new ArrayList<Integer>(origSubset.itemset);
+            List<Integer> reducedItemset = new ArrayList<>(origSubset.itemset);
             reducedItemset.remove(reducedItemset.size()-removeIndex-1);
             Subset newSubset = new 
                     Subset(reducedItemset, removeIndex, origSubset.skipSubsetsNotInL);
@@ -374,6 +386,8 @@ public class IncMine2 extends AbstractLearner implements Observer {
             enumerateSubsets(s, blackList, supersetSupportVector, originalFCIid,
                              newFCI, fciTable);
         }
+        subList.clear();
+        blackList.clear();
     }
     
 

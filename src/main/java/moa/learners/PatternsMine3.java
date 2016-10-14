@@ -16,6 +16,8 @@ import moa.cluster.Cluster;
 import moa.cluster.SphereCluster;
 import com.yahoo.labs.samoa.instances.SparseInstance;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import moa.utils.Configuration;
 import moa.utils.LCS;
 import moa.utils.MapUtil;
@@ -223,14 +225,19 @@ public class PatternsMine3 extends AbstractLearner implements Observer {
         }
         List<Integer> recommendations = new ArrayList<>();
         // how to get all fcis found ?
-        FCITable fciGlobal = this.incMine.fciTableGlobal;
-        Iterator<SemiFCI> it = fciGlobal.iterator();
+        Iterator<SemiFCI> it = this.incMine.fciTableGlobal.iterator();
+        
         List<FciValue> mapFciWeight = new LinkedList<FciValue>();
         List<FciValue> mapFciWeightGroup = new LinkedList<FciValue>();
         List<FciValue> mapFciWeightGlobal = new LinkedList<FciValue>();
         
         while(it.hasNext()){
-            SemiFCI fci = it.next();
+            SemiFCI fci = null;
+            try {
+                fci = (SemiFCI) it.next().clone();
+            } catch (CloneNotSupportedException ex) {
+                Logger.getLogger(PatternsMine3.class.getName()).log(Level.SEVERE, null, ex);
+            }
             if(fci.size() > 1){
                 List<Integer> items = fci.getItems();
                 double hitsVal = this.computeSimilarity(items,window);
@@ -266,11 +273,14 @@ public class PatternsMine3 extends AbstractLearner implements Observer {
 //            int preference = 0;
 //            for(double groupid : groupids){
             if(groupid != -1.0){
-                List<FCITable> fciTables = this.incMine.fciTablesGroups;
-                FCITable fciGroup = fciTables.get((int) Math.round(groupid));
-                Iterator<SemiFCI> itG = fciGroup.iterator();
+                Iterator<SemiFCI> itG  = this.incMine.fciTablesGroups.get((int) Math.round(groupid)).iterator();
                 while(itG.hasNext()){
-                    SemiFCI fci = itG.next();
+                    SemiFCI fci = null;
+                    try {
+                        fci = (SemiFCI) itG.next().clone();
+                    } catch (CloneNotSupportedException ex) {
+                        Logger.getLogger(PatternsMine3.class.getName()).log(Level.SEVERE, null, ex);
+                    }
                     if(fci.size() > 1){
                         List<Integer> items = fci.getItems();
                         double hitsVal = this.computeSimilarity(items,window);
@@ -286,8 +296,10 @@ public class PatternsMine3 extends AbstractLearner implements Observer {
                         }
                         FciValue fciVal = new FciValue();
                         fciVal.setGroupFciFlag(true);
-                        ///fciVal.setPreference(preference);
-                        fciVal.setFci(fci);
+                       
+                            ///fciVal.setPreference(preference);
+                        fciVal.setFci( fci);
+                      
                         fciVal.computeValue(hitsVal, support, 0, minSupportOption.getValue());
                         mapFciWeight.add(fciVal);
                         mapFciWeightGroup.add(fciVal);

@@ -1,9 +1,8 @@
-package Charm_BitSet;
+package CharmBitsetOrig;
 
 import java.io.IOException;
 import java.util.Map.Entry;
 import java.util.*;
-import moa.core.TimingUtils;
 import moa.utils.Configuration;
 
 /**
@@ -32,7 +31,6 @@ import moa.utils.Configuration;
  */
 public class AlgoCharm_Bitset {
         protected Itemsets closedItemsets = new Itemsets();
-        protected Context context;
         
 	private long startTimestamp; // for stats
 	private long endTimestamp; // for stats
@@ -59,13 +57,12 @@ public class AlgoCharm_Bitset {
 	 * @throws IOException
 	 */
 	public Itemsets runAlgorithm(Context context, double minsup,
-			int hashTableSize) throws Exception {
+			int hashTableSize) {
 		this.hash = new HashTable(hashTableSize);
-		startTimestamp = TimingUtils.getNanoCPUTimeOfCurrentThread();
+		startTimestamp = System.currentTimeMillis();
 
 		// (1) count the tid set of each item in the database in one database
 		// pass
-                
 		mapItemTIDS = new HashMap<Integer, BitSet>(); // id item, count
 		tidcount = 0;
 		for(int i=0; i<context.size(); i++) { // for each transaction
@@ -106,35 +103,23 @@ public class AlgoCharm_Bitset {
 
 		// for optimization
 		sortChildren(root);
-                
-		
-                while (root.getChildNodes().size() > 0) {
+
+		while (root.getChildNodes().size() > 0) {
                     ITNode child = root.getChildNodes().get(0);
-                    try{
-                        if(!extend(child)){
-                           break; 
-                        }
-                        if(!save(child)){
-                            break;
-                        }
-                    }catch(Exception e){
-                        System.out.println("OUT OF TIME IN EXTEND");
-                        break;
-                    }finally{
-                        delete(child);
-                    }
-                    
-                }
-                
+                    extend(child);
+                    save(child);
+                    delete(child);
+
+		}
+
 		saveAllClosedItemsets();
-                //mapItemTIDS.clear();
-		endTimestamp = TimingUtils.getNanoCPUTimeOfCurrentThread();
+                mapItemTIDS.clear();
+		endTimestamp = System.currentTimeMillis();
                 return closedItemsets;
 	}
         
-        public double getExecTime(){
-            double ms = ((double)(endTimestamp - startTimestamp) / 1e6);
-            return ms;
+        public long getExecTime(){
+            return endTimestamp - startTimestamp;
         }
 
 	private void saveAllClosedItemsets() {
@@ -144,18 +129,13 @@ public class AlgoCharm_Bitset {
 					closedItemsets.addItemset(itemsetObject);
 					itemsetCount++;
 				}
-                            //hashE.clear();
 			}
 		}
-                
 	}
 
-	private boolean extend(ITNode currNode) throws Exception {
-                endTimestamp = TimingUtils.getNanoCPUTimeOfCurrentThread();
-		if(this.getExecTime() > Configuration.MAX_UPDATE_TIME){
-                    throw new Exception();
-                }
-                // loop over the brothers
+	private void extend(ITNode currNode)  {
+            
+		// loop over the brothers
 		int i = 0;
 		while (i < currNode.getParent().getChildNodes().size()) {
 
@@ -200,18 +180,16 @@ public class AlgoCharm_Bitset {
 		sortChildren(currNode);
 
 		while (currNode.getChildNodes().size() > 0) {
-			ITNode child = currNode.getChildNodes().get(0);
-			if(!extend(child)){
-                            delete(child);
-                            return false;
-                        }
-			if(!save(child)){
-                            delete(child);
-                            return false;
-                        }
-			
+                    if(hash.count > Configuration.MAX_FCI_SET_COUNT 
+                            || this.getExecTime() > Configuration.MAX_UPDATE_TIME){
+                        System.out.println("OUT OF TIME AND SIZE");
+                        break;
+                    }
+                    ITNode child = currNode.getChildNodes().get(0);
+                    extend(child);
+                    save(child);
+                    delete(child);
 		}
-                return true;
 	}
 
 	private boolean containsAll(ITNode node1, ITNode node2) {
@@ -222,10 +200,10 @@ public class AlgoCharm_Bitset {
 
 	private void replaceInSubtree(ITNode currNode, Set<Integer> itemset) {
 		// make the union
-		Set<Integer> union = new HashSet<Integer>(itemset);
+		Set<Integer> union = new HashSet<>(itemset);
 		union.addAll(currNode.getItemset());
 		// replace for this node
-		//currNode.setItemset(union);
+		currNode.setItemset(union);
 		// replace for the childs of this node
 		currNode.replaceInChildren(union);
 	}
@@ -240,7 +218,7 @@ public class AlgoCharm_Bitset {
 		// (2) check if the two itemsets have enough common tids
 		// if not, we don't need to generate a rule for them.
 		if (cardinality >= minsupRelative) {
-			Set<Integer> union = new HashSet<>(brother.getItemset());
+			Set<Integer> union = new HashSet<Integer>(brother.getItemset());
 			union.addAll(currNode.getItemset());
 			ITNode node = new ITNode(union);
 			node.setTidset(commonTids, cardinality);
@@ -254,11 +232,10 @@ public class AlgoCharm_Bitset {
 		child.getParent().getChildNodes().remove(child);
 	}
 
-	private boolean save(ITNode node) {
+	private void save(ITNode node)  {
 		if (!hash.containsSupersetOf(node.itemsetObject)) {
-			hash.put(node.itemsetObject);    
+                    hash.put(node.itemsetObject);
 		}
-                return true;
 	}
 
 	private void sortChildren(ITNode node) {

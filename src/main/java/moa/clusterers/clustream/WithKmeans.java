@@ -107,11 +107,12 @@ public class WithKmeans extends AbstractClusterer {
 
 
 		// 1. Determine closest kernel
+                
 		ClustreamKernel closestKernel = null;
 		double minDistance = Double.MAX_VALUE;
 		for ( int i = 0; i < kernels.length; i++ ) {
 			//System.out.println(i+" "+kernels[i].getWeight()+" "+kernels[i].getDeviation());
-			double distance = distance(instance.toDoubleArray(), kernels[i].getCenter());
+			double distance = distance(instance.toDoubleArray(), kernels[i].getCenterForReading());
 			if (distance < minDistance) {
 				closestKernel = kernels[i];
 				minDistance = distance;
@@ -124,13 +125,13 @@ public class WithKmeans extends AbstractClusterer {
 			// Special case: estimate radius by determining the distance to the
 			// next closest cluster
 			radius = Double.MAX_VALUE;
-			double[] center = closestKernel.getCenter();
+			double[] center = closestKernel.getCenterForReading();
 			for ( int i = 0; i < kernels.length; i++ ) {
 				if ( kernels[i] == closestKernel ) {
 					continue;
 				}
 
-				double distance = distance(kernels[i].getCenter(), center );
+				double distance = distance(kernels[i].getCenterForReading(), center );
 				radius = Math.min( distance, radius );
 			}
 		} else {
@@ -160,9 +161,9 @@ public class WithKmeans extends AbstractClusterer {
 		int closestB = 0;
 		minDistance = Double.MAX_VALUE;
 		for ( int i = 0; i < kernels.length; i++ ) {
-			double[] centerA = kernels[i].getCenter();
+			double[] centerA = kernels[i].getCenterForReading();
 			for ( int j = i + 1; j < kernels.length; j++ ) {
-				double dist = distance( centerA, kernels[j].getCenter() );
+				double dist = distance( centerA, kernels[j].getCenterForReading() );
 				if ( dist < minDistance ) {
 					minDistance = dist;
 					closestA = i;

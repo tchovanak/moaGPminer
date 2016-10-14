@@ -136,6 +136,16 @@ public class ClustreamKernel extends CFCluster {
         }
         return res;
     }
+    
+     /**
+      * Author: Tomas Chovanak... if kernel is used only for reading it doesn't need to be copied
+     * @return this kernels' center
+     */
+   
+    public double[] getCenterForReading() {
+        assert (!this.isEmpty());
+        return this.LS;
+    }
 
     /**
      * See interface <code>Cluster</code>

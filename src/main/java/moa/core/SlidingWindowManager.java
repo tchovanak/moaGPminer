@@ -33,6 +33,7 @@ public abstract class SlidingWindowManager extends Observable implements Seriali
     private static final long serialVersionUID = 1L;
     protected Segment currentSegment;
     protected double minSupport;
+    protected int maxItemsetLength;
     
     /**
      * Default constructor.
@@ -41,6 +42,7 @@ public abstract class SlidingWindowManager extends Observable implements Seriali
     {
         this.currentSegment = new Segment(minSupport, maxItemsetLength);
         this.minSupport = minSupport;
+        this.maxItemsetLength = maxItemsetLength;
     }
     
     public abstract void addInstance(Instance inst);

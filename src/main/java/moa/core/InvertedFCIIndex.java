@@ -36,8 +36,8 @@ public class InvertedFCIIndex implements Serializable {
         private Map<Integer, Boolean> sortCheck; //use a flag to check sort invariant
         
         public IDArrayList() {
-            map = new HashMap<Integer, ArrayList<Integer>>();
-            sortCheck = new HashMap<Integer, Boolean>();
+            map = new HashMap<>();
+            sortCheck = new HashMap<>();
         }
         
         public void addID(int fciSize, int id) {
@@ -93,8 +93,8 @@ public class InvertedFCIIndex implements Serializable {
      * Default constructor. Creates a new empty instance of Inverted Index.
      */
     public InvertedFCIIndex() {        
-        invertedIndex = new HashMap<Integer, IDArrayList>();
-        newItemsets = new HashMap<Integer, ArrayList<Integer>>();
+        invertedIndex = new HashMap<>();
+        newItemsets = new HashMap<>();
     }
 
     /**
@@ -133,9 +133,22 @@ public class InvertedFCIIndex implements Serializable {
     public void removeSemiFCI(SemiFCI itemset) {
         
         for(Integer item:itemset.getItems()) {
-            if(invertedIndex.containsKey(item))
-                invertedIndex.get(item).removeID(itemset.getId().getDimension(), itemset.getId().getPosition());
+            if(invertedIndex.containsKey(item)){
+                IDArrayList list = invertedIndex.get(item);
+                list.removeID(itemset.getId().getDimension(), itemset.getId().getPosition());
+                if(list.map.isEmpty()){
+                    invertedIndex.remove(item);
+                }
+                
+            }
+            
+                
         }
+    }
+    
+    public void clearIndex(){
+        this.invertedIndex.clear();
+        this.newItemsets.clear();
     }
 
     /**

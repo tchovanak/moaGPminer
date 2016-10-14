@@ -213,15 +213,31 @@ public class IncMine extends AbstractLearner implements Observer {
             if(!s.isUpdated()) {
                 s.pushSupport(0);
                 s.setUpdated(false);
-                int k = computeK(s.getId(), 0);
+                int k;
+                try {
+                    k = computeK((SemiFCIid) s.getId().clone(), 0);
+                } catch (CloneNotSupportedException ex) {
+                    k = computeK(s.getId(), 0);
+                    Logger.getLogger(IncMine.class.getName()).log(Level.SEVERE, null, ex);
+                }
                 
                 if (k == -1){
-                    this.fciTable.removeSemiFCI(s.getId(), iter);
+                    try {
+                        this.fciTable.removeSemiFCI((SemiFCIid) s.getId().clone(), iter);
+                    } catch (CloneNotSupportedException ex) {
+                        this.fciTable.removeSemiFCI(s.getId(), iter);
+                        Logger.getLogger(IncMine.class.getName()).log(Level.SEVERE, null, ex);
+                    }
                 }
                 else{
                     SemiFCIid sfsId = this.fciTable.selectSFS(s, true);
                     if(sfsId.isValid())
-                        this.fciTable.removeSemiFCI(s.getId(), iter);
+                        try {
+                            this.fciTable.removeSemiFCI((SemiFCIid) s.getId().clone(), iter);
+                        } catch (CloneNotSupportedException ex) {
+                            this.fciTable.removeSemiFCI(s.getId(), iter);
+                            Logger.getLogger(IncMine.class.getName()).log(Level.SEVERE, null, ex);
+                        }
                 }
             }else{
                 s.setUpdated(false);

@@ -129,8 +129,8 @@ public class GridSearchEvaluator extends MainTask {
                 transsec = counter/tp;
                 // SPEED CONTROL PART
                 if(transsec < Configuration.MIN_TRANSSEC * 10){
-                    Configuration.MAX_FCI_SET_COUNT = originalFCISETCOUNT * (transsec/((Configuration.DESIRED_TRANSSEC)*2));
-                    Configuration.MAX_UPDATE_TIME = originalUPDATETIME * (transsec/((Configuration.DESIRED_TRANSSEC)*2));
+                    //Configuration.MAX_FCI_SET_COUNT = originalFCISETCOUNT * (transsec/((Configuration.DESIRED_TRANSSEC)*2));
+                    Configuration.MAX_UPDATE_TIME = originalUPDATETIME * (transsec/(Configuration.DESIRED_TRANSSEC));
                 }
                 if(counter % learner.fixedSegmentLengthOption.getValue() == 0){
                     System.out.println(counter); // to see progress

@@ -38,6 +38,13 @@ public class SemiFCIid implements Serializable{
         this.dimension = dimension;
         this.position = position;
     }
+    
+    @Override
+    public Object clone() throws CloneNotSupportedException {
+        SemiFCIid cloned = new SemiFCIid(dimension, position);
+        return cloned;
+    }
+    
     /**
      * @return the dimension
      */
@@ -74,6 +81,10 @@ public class SemiFCIid implements Serializable{
     public boolean isValid(){
         return position != -1;
     }
+
+    
+    
+    
     
     @Override
     public String toString() {
@@ -82,4 +93,30 @@ public class SemiFCIid implements Serializable{
         sb.append("(").append(dimension).append(",").append(position).append(")");
         return sb.toString();
     }
+
+    @Override
+    public int hashCode() {
+        int hash = 7;
+        return hash;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (obj == null) {
+            return false;
+        }
+        if (getClass() != obj.getClass()) {
+            return false;
+        }
+        final SemiFCIid other = (SemiFCIid) obj;
+        if(this.dimension != other.dimension) {
+            return false;
+        }
+        if(this.position != other.position) {
+            return false;
+        }
+        return true;
+    }
+    
+    
 }

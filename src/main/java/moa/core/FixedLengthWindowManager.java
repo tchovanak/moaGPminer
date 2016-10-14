@@ -46,7 +46,7 @@ public class FixedLengthWindowManager extends SlidingWindowManager {
         I created wrapper object that sends groupid parameter to incmine.
     */
     public void addInstance(Instance transaction) {
-        currentSegment.addItemset(transaction);
+        currentSegment.addItemset(transaction.copy());
         if(currentSegment.size() >= segmentLenght)
         {
             int groupid = (int)transaction.value(0);
@@ -54,7 +54,7 @@ public class FixedLengthWindowManager extends SlidingWindowManager {
             ObserverParamWrapper param = new ObserverParamWrapper();
             param.setGroupid((int)transaction.value(0)); // at index 0 there is groupid
             notifyIncMine(param);
-            currentSegment.clear();
+            this.currentSegment = new Segment(minSupport, maxItemsetLength);
         }
     }
 

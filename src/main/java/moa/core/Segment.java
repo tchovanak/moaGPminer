@@ -20,10 +20,10 @@
 
 package moa.core;
 
-import Charm_BitSet.AlgoCharm_Bitset;
-import Charm_BitSet.Context;
-import Charm_BitSet.Itemset;
-import Charm_BitSet.Itemsets;
+import CharmBitsetOrig.AlgoCharm_Bitset;
+import CharmBitsetOrig.Context;
+import CharmBitsetOrig.Itemset;
+import CharmBitsetOrig.Itemsets;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
@@ -41,6 +41,7 @@ public class Segment implements Serializable{
     private Context context;
     private int MAX_ITEMSET_LENGTH;
     private double minSupport;
+    private AlgoCharm_Bitset charmBitset = new AlgoCharm_Bitset();
     
     /**
      * Default constructor. Creates a new empty segment.
@@ -78,19 +79,20 @@ public class Segment implements Serializable{
      * Return the list of FCIs mined in the current segment in size ascending order
      * @return list of FCIs
      */
-    public List<SemiFCI> getFCI() throws Exception {
-                
-        
-        AlgoCharm_Bitset charmBitset = new AlgoCharm_Bitset();
+    public List<SemiFCI> getFCI() {
         Itemsets closedItemsets = charmBitset.runAlgorithm(context, minSupport, 1000000);
-        
         System.out.println("Compute FCIs:" + charmBitset.getExecTime() + "ms\n (CHARM-BITSET)");
         System.out.println(closedItemsets.getItemsetsCount() + " FCIs found in the last segment (CHARM-BITSET)");
-        
         List<SemiFCI> fciSet = new ArrayList<SemiFCI>();
+        double startUpdateTime = TimingUtils.getNanoCPUTimeOfCurrentThread();
         for(int levelIndex = 0; levelIndex < closedItemsets.getLevels().size(); levelIndex++){
-            if (this.MAX_ITEMSET_LENGTH != -1 && levelIndex > this.MAX_ITEMSET_LENGTH)
+            double endUpdateTime = TimingUtils.getNanoCPUTimeOfCurrentThread();
+            if (this.MAX_ITEMSET_LENGTH != -1 && levelIndex > this.MAX_ITEMSET_LENGTH){
                 break;
+            }
+            if(((endUpdateTime - startUpdateTime)/1e6 > Configuration.MAX_UPDATE_TIME)){
+                break;
+            }
             List<Itemset> level = closedItemsets.getLevels().get(levelIndex);
             for(Itemset itemset: level){
                 SemiFCI newFci = new SemiFCI(new ArrayList<Integer>(itemset.getItems()),itemset.getAbsoluteSupport()); 
@@ -99,8 +101,6 @@ public class Segment implements Serializable{
             }
             
         }
-        
-        
         return fciSet;
     }
     
