@@ -26,7 +26,6 @@ import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import moa.learners.IncMine2;
-import com.rits.cloning.Cloner;
 /*
     (Tomas Chovanak) No change
 */
@@ -46,8 +45,10 @@ public class SemiFCI implements Comparable<SemiFCI>,Serializable {
      * @param currentSupport current support 
      */
     public SemiFCI(List<Integer> itemset, int currentSupport) {
-        Cloner cloner=new Cloner();
-        items = cloner.deepClone(itemset);
+        items = new ArrayList<>();
+        for(Integer i : itemset){
+            items.add(i);
+        }
         Collections.sort(items);
         
         this.id = new SemiFCIid(items.size(), -1);
@@ -61,8 +62,11 @@ public class SemiFCI implements Comparable<SemiFCI>,Serializable {
     
     @Override
     public Object clone() throws CloneNotSupportedException {
-        Cloner cloner=new Cloner();
-        SemiFCI clone = new SemiFCI(cloner.deepClone(this.items), this.supports[0]);
+        List<Integer> itemsCloned = new ArrayList<>();
+        for(Integer i: items){
+            itemsCloned.add(i);
+        }
+        SemiFCI clone = new SemiFCI(itemsCloned, this.supports[0]);
         clone.setId((SemiFCIid) this.id.clone());
         int[] cloneSupports = this.supports.clone();
         boolean cloneUpdated = this.updated;
@@ -78,7 +82,11 @@ public class SemiFCI implements Comparable<SemiFCI>,Serializable {
      * @return the copy of the set of items stored
      */
     public List<Integer> getItems() {
-        return new ArrayList<Integer>(items);
+        List<Integer> newList = new ArrayList<Integer>();
+        for(Integer i: items){
+            newList.add(i);
+        }
+        return newList;
     }
     
     /**
@@ -120,7 +128,7 @@ public class SemiFCI implements Comparable<SemiFCI>,Serializable {
      * @return ordered set of common items
      */
     public List<Integer> intersectWith(SemiFCI o) {
-        return Utilities.intersect2orderedList(this.items, o.items);
+        return Utilities.intersect2orderedList(this.getItems(), o.getItems());
     }
 
     /**
@@ -149,7 +157,7 @@ public class SemiFCI implements Comparable<SemiFCI>,Serializable {
      * @return the supports
      */
     public int[] getSupports() {
-        return supports.clone();
+        return supports;
     }
 
     /**

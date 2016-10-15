@@ -47,17 +47,54 @@ public class IncMine2 extends AbstractLearner implements Observer {
     void setRelaxationRate(double d) {
         this.r = d;
     }
+
+    
     
     private class Subset {
-        protected List<Integer> itemset;
-        protected int startIndex;
-        protected boolean skipSubsetsNotInL;
+        private List<Integer> itemset;
+        private int startIndex;
+        private boolean skipSubsetsNotInL;
         public Subset(List<Integer> itemset, int startIndex, boolean skipSubsetsNotInL)
         {
-            this.itemset = itemset;
+            List<Integer> items = new ArrayList<Integer>();
+            for(Integer i : itemset){
+                items.add(i);
+            }
+            this.itemset = items;
             this.startIndex = startIndex;
             this.skipSubsetsNotInL = skipSubsetsNotInL;
         }
+
+        public List<Integer> getItemset() {
+            List<Integer> items = new ArrayList<Integer>();
+            for(Integer i : itemset){
+                items.add(i);
+            }
+            return items;
+        }
+
+        public void setItemset(List<Integer> itemset) {
+            this.itemset = itemset;
+        }
+
+        public int getStartIndex() {
+            return startIndex;
+        }
+
+        public void setStartIndex(int startIndex) {
+            this.startIndex = startIndex;
+        }
+
+        public boolean isSkipSubsetsNotInL() {
+            return skipSubsetsNotInL;
+        }
+
+        public void setSkipSubsetsNotInL(boolean skipSubsetsNotInL) {
+            this.skipSubsetsNotInL = skipSubsetsNotInL;
+        }
+        
+        
+        
     }
     
     private int windowSizeOption;
@@ -193,6 +230,7 @@ public class IncMine2 extends AbstractLearner implements Observer {
      */
     public void update(Observable o, Object arg) {
         counter++;
+        
         SlidingWindowManager swm = (SlidingWindowManager) o;
         ObserverParamWrapper param = (ObserverParamWrapper) arg;
         int groupid = param.getGroupid();
@@ -201,8 +239,8 @@ public class IncMine2 extends AbstractLearner implements Observer {
             fciTable = this.fciTableGlobal;
         }else{
             fciTable = this.fciTablesGroups.get(groupid);
-           
         }
+        
         fciTable.nAdded = 0;
         fciTable.nRemoved = 0;
         
@@ -251,6 +289,7 @@ public class IncMine2 extends AbstractLearner implements Observer {
 
         //for each FCI in the last segment in size ascending order
         for(SemiFCI fciOrig: semiFCIs) {
+            
             SemiFCI fci = null;
             try {
                 fci = (SemiFCI) fciOrig.clone();
@@ -258,7 +297,6 @@ public class IncMine2 extends AbstractLearner implements Observer {
                 Logger.getLogger(IncMine2.class.getName()).log(Level.SEVERE, null, ex);
             }
             double ms = this.getUpdateTime()/1e6;
-            
             if(ms > Configuration.MAX_UPDATE_TIME){
                 System.out.println("OUT OF TIME");
                 break;
@@ -271,7 +309,7 @@ public class IncMine2 extends AbstractLearner implements Observer {
             
             if(fciId.isValid()) {
                 //fci is already in the FCITable
-                fciTable.getFCI(fciId).pushSupport(fci.currentSupport());
+                fciTable.getFCIOriginal(fciId).pushSupport(fci.currentSupport());
                 computeK(fciId, 0, fciTable);                
             }else{
                 //fci is not in the FCITable yet
@@ -301,10 +339,10 @@ public class IncMine2 extends AbstractLearner implements Observer {
                
         }
         
-        fciTable.clearNewItemsetsTable();
+        
         
         //iterate in size-descending order over the entire FCITable to remove unfrequent semiFCIs
-        for(Iterator<SemiFCI> iter =  fciTable.iterator(); iter.hasNext(); ) {
+        for(Iterator<SemiFCI> iter =  fciTable.iteratorOriginal(); iter.hasNext(); ) {
             SemiFCI s = iter.next();
             if(!s.isUpdated()) {
                 s.pushSupport(0);
@@ -323,10 +361,15 @@ public class IncMine2 extends AbstractLearner implements Observer {
             }
 
         }       
-                
+        fciTable.clearNewItemsetsTable();        
         semiFCIs.clear();
         double ms = this.getUpdateTime()/1e6;
-       
+        if(counter % 10 == 0){
+//                clearSlidingWindow();
+            fciTable.clearTable();
+            System.out.println("CCCCCCCCCCLLLLLLLLLLLLLLLLLLLLLLEAAAAAAAAAAAAAAAAAAAAAAAAAAAAANNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN");
+            
+        }
         System.out.println("Update done in " + this.getUpdateTime()/1e6 + " ms.");
         System.out.println(fciTable.size() + " SemiFCIs actually stored\n");
         
@@ -349,21 +392,21 @@ public class IncMine2 extends AbstractLearner implements Observer {
         List<Subset> subList = new ArrayList<>();
         List<Integer> blackList = new ArrayList<>();
         
-        for(int removeIndex = origSubset.startIndex; removeIndex < origSubset.itemset.size(); removeIndex++) {
+        for(int removeIndex = origSubset.getStartIndex(); removeIndex < origSubset.getItemset().size(); removeIndex++) {
             if(skipList.contains(removeIndex)) { //don't process subsets of an already updated SemiFCI
                 if(removeIndex > 0)     blackList.add(removeIndex-1);
                 continue;
             }
 
             //create subset
-            List<Integer> reducedItemset = new ArrayList<>(origSubset.itemset);
+            List<Integer> reducedItemset = origSubset.getItemset();
             reducedItemset.remove(reducedItemset.size()-removeIndex-1);
             Subset newSubset = new 
                     Subset(reducedItemset, removeIndex, origSubset.skipSubsetsNotInL);
-            SemiFCIid id = fciTable.select(newSubset.itemset);
+            SemiFCIid id = fciTable.select(newSubset.getItemset());
 
             if(id.isValid()) {//subset in L
-                SemiFCI subFCI = fciTable.getFCI(id); 
+                SemiFCI subFCI = fciTable.getFCIOriginal(id); 
                 if(subFCI.isUpdated()) {
                     if(removeIndex > 0) blackList.add(removeIndex-1); //its subsets don't have to be updated
                 }else {
@@ -377,7 +420,7 @@ public class IncMine2 extends AbstractLearner implements Observer {
                 if(!newSubset.skipSubsetsNotInL)
                     subList.add(newSubset);
                 if(newFCI)
-                    updateSubsetNotInL(newSubset.itemset, originalFCIid, fciTable);
+                    updateSubsetNotInL(newSubset.getItemset(), originalFCIid, fciTable);
             }
         }
         
@@ -404,7 +447,7 @@ public class IncMine2 extends AbstractLearner implements Observer {
 
         SemiFCI fci = fciTable.getFCI(fciId);
 
-        fciTable.getFCI(subsetId).pushSupport(fci.currentSupport());
+        fciTable.getFCIOriginal(subsetId).pushSupport(fci.currentSupport());
         
         int k = computeK(subsetId, 1, fciTable);
 
@@ -473,9 +516,9 @@ public class IncMine2 extends AbstractLearner implements Observer {
         return fciTable.nRemoved;
     }
     
-    public Iterator<SemiFCI> getApproximateFCIIterator(FCITable fciTable){
-        return fciTable.iterator();
-    }
+//    public Iterator<SemiFCI> getApproximateFCIIterator(FCITable fciTable){
+//        return fciTable.iterator();
+//    }
     
     @Override
     public double[] getVotesForInstance(Example e) {
@@ -495,6 +538,30 @@ public class IncMine2 extends AbstractLearner implements Observer {
     @Override
     public String toString() {
         return fciTableGlobal.toString();
+    }
+    
+    private void clearSlidingWindow() {
+       double min_sup = new BigDecimal(this.r*this.sigma).setScale(8, RoundingMode.DOWN).doubleValue(); //necessary to correct double rounding error
+
+        this.swmGlobal = new FixedLengthWindowManager(min_sup, this.maxItemsetLengthOption, this.fixedSegmentLengthOption);
+        this.swmGlobal.deleteObservers();
+        this.swmGlobal.addObserver(this);
+        this.swmGroups = new ArrayList<SlidingWindowManager>();
+        
+        double groupMinSupport = min_sup;
+        // prepares sliding window for each group
+        for(int i = 0; i < this.numberOfGroupsOption; i++){
+            this.swmGroups.add(i, new FixedLengthWindowManager(groupMinSupport, 
+                    this.maxItemsetLengthOption, this.groupFixedSegmentLengthOption ));
+            this.swmGroups.get(i).deleteObservers();
+            this.swmGroups.get(i).addObserver(this);        
+        }
+        this.fciTableGlobal = new FCITable();
+        this.fciTablesGroups = new ArrayList<FCITable>();
+        //prepares FCI table foreach group
+        for(int i = 0; i < this.numberOfGroupsOption; i++){ 
+            fciTablesGroups.add(i, new FCITable());
+        }
     }
 
 }

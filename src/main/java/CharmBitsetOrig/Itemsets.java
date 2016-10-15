@@ -39,10 +39,10 @@ public class Itemsets implements Serializable{
 	}
 			
 	public void addItemset(Itemset itemset){
-		while(levels.size() <= itemset.itemset.size()){
+		while(levels.size() <= itemset.getItems().size()){
                     levels.add(new ArrayList<Itemset>());
 		}
-		levels.get(itemset.itemset.size()).add(itemset);
+		levels.get(itemset.getItems().size()).add(itemset);
 		itemsetsCount++;
 	}
 

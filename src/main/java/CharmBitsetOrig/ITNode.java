@@ -32,29 +32,29 @@ public class ITNode {
 	private List<ITNode> childNodes = new ArrayList<ITNode>();
 	
 	public int size(){
-		return itemsetObject.cardinality;
+		return itemsetObject.getCardinality();
 	}
 	
 
 	public double getRelativeSupport(int nbObject) {
-		return ((double) itemsetObject.cardinality) / ((double) nbObject);
+		return ((double) itemsetObject.getCardinality()) / ((double) nbObject);
 	}
 	
 	public ITNode(Set<Integer> itemset){
-		this.itemsetObject.itemset = itemset;
+		this.itemsetObject.setItemset(itemset);
 	}
 
 	public Set<Integer> getItemset() {
-		return itemsetObject.itemset;
+		return itemsetObject.getItems();
 	}
 
 	public BitSet getTidset() {
-		return itemsetObject.tidset;
+		return itemsetObject.getTidset();
 	}
 
 	public void setTidset(BitSet tidset, int cardinality) {
-		this.itemsetObject.tidset = tidset;
-		this.itemsetObject.cardinality = cardinality;
+		this.itemsetObject.setTidset(tidset);
+		this.itemsetObject.setCardinality(cardinality);
 	}
 
 	public List<ITNode> getChildNodes() {
@@ -84,7 +84,7 @@ public class ITNode {
 
 
 	public void setItemset(Set<Integer> union) {
-		this.itemsetObject.itemset = union;
+		this.itemsetObject.setItemset(union);
 	}
 
 

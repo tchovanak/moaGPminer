@@ -6,6 +6,8 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * This class represents a binary context. It can read the context directly from
@@ -44,9 +46,15 @@ public class Context implements Serializable{
 
 	public void addItemset(Itemset itemset) {
                 Cloner cloner = new Cloner();
-		objects.add(cloner.deepClone(itemset));
-		attributes.addAll(itemset.getItems());
-                for(Integer item : itemset.getItems())
+                Itemset cloned = null;
+                try {
+                    cloned = (Itemset) itemset.clone();
+                } catch (CloneNotSupportedException ex) {
+                    Logger.getLogger(Context.class.getName()).log(Level.SEVERE, null, ex);
+                }
+		objects.add(cloned);
+		attributes.addAll(cloner.deepClone(cloned.getItems()));
+                for(Integer item : cloned.getItems())
                     if (item > maxItemId)
                             maxItemId = item;
 	}
@@ -71,11 +79,13 @@ public class Context implements Serializable{
 	}
 
 	public List<Itemset> getObjects() {
-		return objects;
+            Cloner cloner = new Cloner();
+            return cloner.deepClone(objects);
 	}
 
 	public Set<Integer> getAttributes() {
-		return attributes;
+            Cloner cloner = new Cloner();
+            return cloner.deepClone(attributes);
 	}
         
         public int getMaxItemId(){

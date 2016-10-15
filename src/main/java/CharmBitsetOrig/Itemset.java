@@ -1,5 +1,6 @@
 package CharmBitsetOrig;
 
+import com.rits.cloning.Cloner;
 import java.io.Serializable;
 import java.util.BitSet;
 import java.util.HashSet;
@@ -32,28 +33,32 @@ public class Itemset implements Serializable{
 	 * 
 	 */
 	private static final long serialVersionUID = -1490857156451018246L;
-		Set<Integer> itemset; // ordered
-        int cardinality;
-        BitSet tidset;
+        private Set<Integer> itemset; // ordered
+        private int cardinality;
+        private BitSet tidset;
 
         public Itemset() {
             itemset = new HashSet<Integer>();
 	}
         
 	public double getRelativeSupport(int nbObject) {
-		return ((double) cardinality) / ((double) nbObject);
+            return ((double) cardinality) / ((double) nbObject);
 	}
         
         public int getAbsoluteSupport() {
-		return cardinality;
+            return cardinality;
 	}
         
         public Set<Integer> getItems() {
-		return itemset;
+            Set<Integer> cloned = new HashSet<Integer>();
+            for(Integer i : itemset){
+                cloned.add(i);
+            }
+            return cloned;
 	}
         
         public void addItem(Integer value) {
-		itemset.add(value);
+            itemset.add(value);
 	}
         
         public void setCardinality(int cardinality){
@@ -68,4 +73,40 @@ public class Itemset implements Serializable{
             
             return sb.toString();
         }
+
+        @Override
+        public Object clone() throws CloneNotSupportedException {
+            Itemset cloned = new Itemset();
+            for(Integer val : this.itemset){
+                cloned.addItem(val);
+            }
+            cloned.setCardinality(cardinality);
+            if(tidset != null)
+                cloned.setTidset((BitSet) tidset.clone());
+            return cloned;
+        }
+
+        public void setItemset(Set<Integer> itemset) {
+            for(Integer i: itemset){
+                this.itemset.add(i);
+            }
+        }
+
+        public BitSet getTidset() {
+            return (BitSet) tidset.clone();       
+        }
+
+        public void setTidset(BitSet tidset) {
+            if(tidset != null)
+                this.tidset = (BitSet) tidset.clone();
+        }
+
+    public int getCardinality() {
+        return cardinality;
+    }
+        
+        
+        
+        
+        
 }

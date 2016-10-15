@@ -119,6 +119,9 @@ public class GridSearchEvaluator extends MainTask {
             while (stream.hasMoreInstances()) {
                 counter++;
                 Example trainInst = stream.nextInstance();
+                if(!stream.hasMoreInstances()){
+                    stream.restart();
+                }
                 Example testInst = (Example) trainInst.copy();
                 double[] recommendations = learner.getVotesForInstance(testInst);
                 evaluator.addResult(testInst, recommendations, windowSize, numberOfRecommendedItems, transsec, counter); // evaluator will evaluate recommendations and update metrics with given results     

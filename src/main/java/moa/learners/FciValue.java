@@ -4,6 +4,8 @@
  * and open the template in the editor.
  */
 package moa.learners;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import moa.core.SemiFCI;
 import moa.utils.Configuration;
 /**
@@ -31,7 +33,12 @@ class FciValue implements Comparable {
     }
     
     public SemiFCI getFci() {
-        return fci;
+        try {
+            return (SemiFCI) fci.clone();
+        } catch (CloneNotSupportedException ex) {
+            Logger.getLogger(FciValue.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        return null;
     }
 
     public void setFci(SemiFCI fci) {

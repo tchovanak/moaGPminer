@@ -155,7 +155,7 @@ public class PatternsMine3 extends AbstractLearner implements Observer {
         // first update user model with new data
         Instance inst = (Instance) e.getData();
         if(useGroupingOption.isSet()){
-            UserModel um = updateUserModel(inst);
+            UserModel um = updateUserModel(inst.copy());
             if(um.getNumberOfChanges() > this.numMinNumberOfChangesInUserModel.getValue()){
                 um.setNumberOfChanges(0);
                 // perform clustering with user model 
@@ -190,11 +190,11 @@ public class PatternsMine3 extends AbstractLearner implements Observer {
                 }
                 Instance instanceWithGroupid = new SparseInstance(1.0,attValues,indices,nItems);
                 InstanceExample instEx = new InstanceExample(instanceWithGroupid);
-                incMine.trainOnInstance(instEx); // first train on instance with groupid - group
+                incMine.trainOnInstance(instEx.copy()); // first train on instance with groupid - group
 
             }
         }
-        incMine.trainOnInstance(e);   // then train on instance without groupid - global
+        incMine.trainOnInstance(e.copy());   // then train on instance without groupid - global
     }
 
     @Override

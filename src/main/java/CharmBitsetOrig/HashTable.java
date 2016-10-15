@@ -1,6 +1,7 @@
 package CharmBitsetOrig;
 
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.List;
 
 /**
@@ -42,8 +43,8 @@ public class HashTable {
 		}
 		for(Object object : table[hashcode]){
 			Itemset itemsetObject2 = (Itemset)object;
-			if(itemsetObject2.itemset.size() == itemsetObject.itemset.size() &&
-					itemsetObject2.itemset.containsAll(itemsetObject.itemset)
+			if(itemsetObject2.getItems().size() == itemsetObject.getItems().size() &&
+					itemsetObject2.getItems().containsAll(itemsetObject.getItems())
 					){  // FIXED BUG 2010-10: containsAll instead of contains.
 				return true;
 			}
@@ -61,8 +62,9 @@ public class HashTable {
 	
 	public int hashCode(Itemset itemsetObject){
 		int hashcode =0;
+                BitSet tidset = itemsetObject.getTidset();
 //		for (int bit = bitset.nextSetBit(0); bit >= 0; bit = bitset.nextSetBit(bit+1)) {
-		for (int tid=itemsetObject.tidset.nextSetBit(0); tid >= 0; tid = itemsetObject.tidset.nextSetBit(tid+1)) {
+		for (int tid=tidset.nextSetBit(0); tid >= 0; tid = tidset.nextSetBit(tid+1)) {
 			hashcode += tid;
 	    }
 		return (hashcode % size);

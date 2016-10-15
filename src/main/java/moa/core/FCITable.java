@@ -50,6 +50,7 @@ public class FCITable implements Iterable<SemiFCI>, Serializable  {
 
         /**
         * Add an itemset to the FCIArray and returns the ID assigned.
+        * and each semi-FCI in the FCI-array is assigned an ID
         * 
         * @param itemset itemset to be added
         * @return id assigned to the itemset
@@ -60,19 +61,19 @@ public class FCITable implements Iterable<SemiFCI>, Serializable  {
             if(!this.garbageQueue.isEmpty()){
                 pos = garbageQueue.poll();
                 itemset.getIdOriginal().setPosition(pos);
-                try {
-                    this.itemsets.set(pos, (SemiFCI) itemset.clone());
-                } catch (CloneNotSupportedException ex) {
-                    Logger.getLogger(FCITable.class.getName()).log(Level.SEVERE, null, ex);
-                }
+//                try {
+                    this.itemsets.set(pos, itemset);
+//                } catch (CloneNotSupportedException ex) {
+//                    Logger.getLogger(FCITable.class.getName()).log(Level.SEVERE, null, ex);
+//                }
             }else{
                 pos = this.itemsets.size();
                 itemset.getIdOriginal().setPosition(pos);
-                try {
-                    this.itemsets.add((SemiFCI) itemset.clone());
-                } catch (CloneNotSupportedException ex) {
-                    Logger.getLogger(FCITable.class.getName()).log(Level.SEVERE, null, ex);
-                }
+//                try {
+                    this.itemsets.add(itemset);
+//                } catch (CloneNotSupportedException ex) {
+//                    Logger.getLogger(FCITable.class.getName()).log(Level.SEVERE, null, ex);
+//                }
             }
 
             this.size++;
@@ -89,8 +90,8 @@ public class FCITable implements Iterable<SemiFCI>, Serializable  {
         */
         public void removeSemiFCI(int position) {
             //add this position to the garbage queue
-            if(!this.garbageQueue.contains(position))
-                this.garbageQueue.add(position);
+            //if(!this.garbageQueue.contains(position))
+            this.garbageQueue.add(position);
             this.goodPositions.remove(position);
             this.itemsets.set(position, null); //free up memory associated to ne removed semiFCI
             this.size--;
@@ -111,6 +112,20 @@ public class FCITable implements Iterable<SemiFCI>, Serializable  {
                     Logger.getLogger(FCITable.class.getName()).log(Level.SEVERE, null, ex);
                     return null;
                 }
+            else
+                return null;
+        }
+        
+        /**
+        * Returns a copy of the semiFCI in the passed position
+        *
+        * @param position position of the semiFCI in the FCIArray
+        * @return semiFCI in the desired position
+        */
+        public SemiFCI getFCIOriginal(int position) {
+
+            if(!this.garbageQueue.contains(position))
+                return this.itemsets.get(position);
             else
                 return null;
         }
@@ -135,8 +150,13 @@ public class FCITable implements Iterable<SemiFCI>, Serializable  {
             return sb.toString();
         }
 
+        @Override
         public Iterator<SemiFCI> iterator() {
             return new FCIArray.FCIArrayIterator();
+        }
+        
+        public Iterator<SemiFCI> iteratorOriginal() {
+            return new FCIArray.FCIArrayIteratorOriginal();
         }
 
         class FCIArrayIterator implements Iterator<SemiFCI> {
@@ -171,12 +191,52 @@ public class FCITable implements Iterable<SemiFCI>, Serializable  {
             public void remove() {
                 this.goodPosIterator.remove();
                 garbageQueue.add(currentPosition);
+                itemsets.set(currentPosition, null); //free up memory associated to ne removed semiFCI
+                size--;
+            }
+
+        }
+        
+        class FCIArrayIteratorOriginal implements Iterator<SemiFCI> {
+
+//            private Iterator<SemiFCI> it = (Iterator<SemiFCI>) itemsets.iterator();
+            private Iterator<Integer> goodPosIterator = goodPositions.iterator();
+            private int currentPosition;
+//            private boolean hasNextElement = false;
+//            private SemiFCI nextElement;
+
+            @Override
+            public boolean hasNext() {
+//                checkForNextElement();
+//                return this.hasNextElement;
+                return this.goodPosIterator.hasNext();
+            }
+
+            @Override
+            public SemiFCI next() {
+                if(!this.hasNext()) throw new NoSuchElementException();
+//                return this.nextElement;
+                currentPosition = this.goodPosIterator.next();
+                return itemsets.get(currentPosition);
+                
+            }
+
+            @Override
+            public void remove() {
+                this.goodPosIterator.remove();
+                garbageQueue.add(currentPosition);
+                itemsets.set(currentPosition, null); //free up memory associated to ne removed semiFCI
                 size--;
             }
 
         }
     }
     
+    /*
+            The set L is partitioned accordingly
+        to the size of the semi-FCIs in the last window WL. Each partition is stored
+        in an array, called FCI-array, 
+    */
     private HashMap<Integer, FCIArray> table;
     private InvertedFCIIndex invertedIndex;
     private int maxFCISize;
@@ -208,12 +268,10 @@ public class FCITable implements Iterable<SemiFCI>, Serializable  {
         
         if(!this.table.containsKey(itemsetSize))
             this.table.put(itemsetSize, new FCIArray());
-        try {
-            this.table.get(itemsetSize).addSemiFCI(itemset);
-            this.invertedIndex.addSemiFCI((SemiFCI) itemset.clone());
-        } catch (CloneNotSupportedException ex) {
-            Logger.getLogger(FCITable.class.getName()).log(Level.SEVERE, null, ex);
-        }
+       
+        this.table.get(itemsetSize).addSemiFCI(itemset);
+        this.invertedIndex.addSemiFCI(itemset);
+       
         
         this.nAdded++;
         return itemset.getId();
@@ -241,18 +299,41 @@ public class FCITable implements Iterable<SemiFCI>, Serializable  {
      */
     public void removeSemiFCI(SemiFCIid id, Iterator<SemiFCI> iter) {
         
-        this.invertedIndex.removeSemiFCI(getFCI(id));
+        this.invertedIndex.removeSemiFCI(getFCIOriginal(id));
         //this.table.get(id.getDimension()).removeSemiFCI(id.getPosition());
         iter.remove();
         this.nRemoved++;
     }
-
-    public void clearTable(){
-        this.table.clear();
+    
+     public void clearTable(){
+        HashMap<Integer, FCIArray> table = new HashMap<>();
+        InvertedFCIIndex invertedIndex = new InvertedFCIIndex();
+        for(Map.Entry<Integer,FCIArray> tableEntry : this.table.entrySet()){
+            if(tableEntry != null && tableEntry.getValue() != null){
+                Iterator<SemiFCI> iterator = tableEntry.getValue().iterator();
+                FCIArray newFciAray = new FCIArray();
+                while(iterator.hasNext()){
+                    SemiFCI sfci = iterator.next();
+                    newFciAray.addSemiFCI(sfci);
+                    invertedIndex.addSemiFCI(sfci);
+                }
+                table.put(tableEntry.getKey(), newFciAray);
+            }
+        }
+        this.invertedIndex = invertedIndex;
+        this.table = table;
         this.nAdded = 0;
         this.nRemoved = 0;
-        this.invertedIndex.clearIndex();
+        //this.invertedIndex.clearIndex();
     }
+
+//    public void clearTable(){
+//        
+//        this.table.clear();
+//        this.nAdded = 0;
+//        this.nRemoved = 0;
+//        this.invertedIndex.clearIndex();
+//    }
     
     /**
      * Returns the instance of the semiFCI associated to the passed id.
@@ -262,6 +343,17 @@ public class FCITable implements Iterable<SemiFCI>, Serializable  {
     
     public SemiFCI getFCI(SemiFCIid id) {
         return this.table.get(id.getDimension()).getFCI(id.getPosition());
+    }
+    
+    
+    /**
+     * Returns the instance of the semiFCI associated to the passed id.
+     * @param id id of the semiFCI
+     * @return Instance of the semiFCI if present in the table, null otherwise
+     */
+    
+    public SemiFCI getFCIOriginal(SemiFCIid id) {
+        return this.table.get(id.getDimension()).getFCIOriginal(id.getPosition());
     }
 
     /**
@@ -275,7 +367,7 @@ public class FCITable implements Iterable<SemiFCI>, Serializable  {
      */
     public int computeK(SemiFCIid id, int[] supVector, int startK) {
         
-        return this.table.get(id.getDimension()).getFCI(id.getPosition()).computeK(supVector, startK);
+        return this.table.get(id.getDimension()).getFCIOriginal(id.getPosition()).computeK(supVector, startK);
 
     }
 
@@ -395,8 +487,13 @@ public class FCITable implements Iterable<SemiFCI>, Serializable  {
      * 
      * @return semiFCIs size descending iterator
      */
+    @Override
     public Iterator<SemiFCI> iterator() {
-        return new FCITableIterator();
+        return new FCITableIterator(true);
+    }
+    
+    public Iterator<SemiFCI> iteratorOriginal() {
+        return new FCITableIterator(false);
     }
 
     class FCITableIterator implements Iterator<SemiFCI>{
@@ -405,15 +502,20 @@ public class FCITable implements Iterable<SemiFCI>, Serializable  {
         private Iterator<SemiFCI> currentIterator;
         private int currentKeyIndex;
         private boolean hasNextElement = false;
+        private boolean cloning = false;
 
-        public FCITableIterator() {
-            
+        public FCITableIterator(boolean cloning) {
+            this.cloning = cloning;
             this.keys = new ArrayList<Integer>(table.keySet());
             Collections.sort(keys);
             this.currentKeyIndex = keys.size()-1;
-            if(this.currentKeyIndex>=0)
-                this.currentIterator = (Iterator<SemiFCI>) table.get(keys.get(currentKeyIndex)).iterator();
-            
+            if(this.currentKeyIndex>=0){
+                if(cloning){
+                    this.currentIterator = (Iterator<SemiFCI>) table.get(keys.get(currentKeyIndex)).iterator();
+                }else{
+                    this.currentIterator = (Iterator<SemiFCI>) table.get(keys.get(currentKeyIndex)).iteratorOriginal();
+                }
+            } 
         }
 
         public boolean hasNext() {
@@ -443,8 +545,13 @@ public class FCITable implements Iterable<SemiFCI>, Serializable  {
                 this.currentKeyIndex--;
                 this.hasNextElement = false;
                 while(this.currentKeyIndex>=0)
-                {
-                    this.currentIterator = (Iterator<SemiFCI>) table.get(this.keys.get(this.currentKeyIndex)).iterator();
+                {   
+                    if(cloning){
+                        this.currentIterator = (Iterator<SemiFCI>) table.get(this.keys.get(this.currentKeyIndex)).iterator();
+                    }else{
+                        this.currentIterator = (Iterator<SemiFCI>) table.get(this.keys.get(this.currentKeyIndex)).iteratorOriginal();
+                    }
+                    
                     if(this.currentIterator.hasNext())
                     {
                         this.hasNextElement = true;
