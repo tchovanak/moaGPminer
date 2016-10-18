@@ -49,10 +49,12 @@ public class PatternsRecommendationEvaluator extends AbstractMOAObject{
     
     private int ogHits =  0;  // all items hitted by only group patterns
     private int ogRealRecommendedItems = 0; // number of items that were really recommended to user
-
+    
+    private String outputFile;
     private FileWriter writer = null;
 
     public PatternsRecommendationEvaluator(String outputFile)  {
+        this.outputFile = outputFile;
         try {
             this.writer = new FileWriter(outputFile);
             writer.append("TRANSACTION ID");writer.append(',');  // transaction id
@@ -70,6 +72,7 @@ public class PatternsRecommendationEvaluator extends AbstractMOAObject{
             writer.append("OG SUM REAL RECOMMENDED");writer.append(',');  // number of hits from only group
             writer.append("MAX RECOMMENDED ITEMS");writer.append(','); // number of items that should be recommended maxi
             writer.append("TRANSSEC");writer.append('\n');
+            writer.flush();
         } catch (IOException ex) {
             Logger.getLogger(PatternsRecommendationEvaluator.class.getName()).log(Level.SEVERE, null, ex);
         }
@@ -79,6 +82,8 @@ public class PatternsRecommendationEvaluator extends AbstractMOAObject{
                                     Double lggGlobalHits, Double lggGroupHits, Double lgoHits,
                                     Double logHits, Double transsec) {
         try {
+            if(this.writer == null)
+                this.writer = new FileWriter(outputFile);
             writer.append(counter.toString());writer.append(',');  // transaction id
             writer.append(sessionLength.toString());writer.append(',');  // transaction length
             writer.append(((Integer)(sessionLength - windowSize)).toString());writer.append(',');  // test length
@@ -94,6 +99,7 @@ public class PatternsRecommendationEvaluator extends AbstractMOAObject{
             writer.append(((Integer)ogRealRecommendedItems).toString()); writer.append(',');  // number of hits from group
             writer.append(((Integer)maxRecommendedItems).toString()); writer.append(','); // number of hits from group
             writer.append((transsec).toString());writer.append('\n');
+            writer.flush();
         } catch (IOException ex) {
             Logger.getLogger(PatternsRecommendationEvaluator.class.getName()).log(Level.SEVERE, null, ex);
         }
@@ -155,6 +161,12 @@ public class PatternsRecommendationEvaluator extends AbstractMOAObject{
         results[6] = ogHits;
         results[7] = ogRealRecommendedItems;
         results[8] = maxRecommendedItems;
+        try {
+            writer.close();
+            writer = null;
+        } catch (IOException ex) {
+            Logger.getLogger(PatternsRecommendationEvaluator.class.getName()).log(Level.SEVERE, null, ex);
+        }
         return results;
     }
     

@@ -3,6 +3,8 @@ package CharmBitsetOrig;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * This class represents a hash table
@@ -57,7 +59,11 @@ public class HashTable {
 		if(table[hashcode] ==  null){
 			table[hashcode] = new ArrayList<Itemset>();
 		}
-		table[hashcode].add(itemsetObject);
+            try {
+                table[hashcode].add((Itemset) itemsetObject.clone());
+            } catch (CloneNotSupportedException ex) {
+                Logger.getLogger(HashTable.class.getName()).log(Level.SEVERE, null, ex);
+            }
 	}
 	
 	public int hashCode(Itemset itemsetObject){

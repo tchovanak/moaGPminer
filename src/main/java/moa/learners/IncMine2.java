@@ -244,7 +244,7 @@ public class IncMine2 extends AbstractLearner implements Observer {
         fciTable.nAdded = 0;
         fciTable.nRemoved = 0;
         
-        this.startUpadateTime = TimingUtils.getNanoCPUTimeOfCurrentThread();
+        
         int lastSegmentLenght = param.getSegmentLength();
 
         this.minsup = Utilities.getIncMineMinSupportVector(sigma,r,windowSize,lastSegmentLenght);
@@ -288,18 +288,18 @@ public class IncMine2 extends AbstractLearner implements Observer {
 //        }  
 
         //for each FCI in the last segment in size ascending order
+        this.startUpadateTime = TimingUtils.getNanoCPUTimeOfCurrentThread();
         for(SemiFCI fciOrig: semiFCIs) {
-            
+            double ms = this.getUpdateTime()/1e6;
+            if(ms > Configuration.MAX_UPDATE_TIME/2){
+                System.out.println("OUT OF TIME");
+                break;
+            }
             SemiFCI fci = null;
             try {
                 fci = (SemiFCI) fciOrig.clone();
             } catch (CloneNotSupportedException ex) {
                 Logger.getLogger(IncMine2.class.getName()).log(Level.SEVERE, null, ex);
-            }
-            double ms = this.getUpdateTime()/1e6;
-            if(ms > Configuration.MAX_UPDATE_TIME){
-                System.out.println("OUT OF TIME");
-                break;
             }
             if(fci.getItems().size() == 1){
                 continue;
@@ -364,11 +364,10 @@ public class IncMine2 extends AbstractLearner implements Observer {
         fciTable.clearNewItemsetsTable();        
         semiFCIs.clear();
         double ms = this.getUpdateTime()/1e6;
-        if(counter % 10 == 0){
+        if(counter % 100 == 0){
 //                clearSlidingWindow();
             fciTable.clearTable();
-            System.out.println("CCCCCCCCCCLLLLLLLLLLLLLLLLLLLLLLEAAAAAAAAAAAAAAAAAAAAAAAAAAAAANNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN");
-            
+            System.gc();
         }
         System.out.println("Update done in " + this.getUpdateTime()/1e6 + " ms.");
         System.out.println(fciTable.size() + " SemiFCIs actually stored\n");

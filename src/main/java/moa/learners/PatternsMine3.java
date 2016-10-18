@@ -523,8 +523,7 @@ public class PatternsMine3 extends AbstractLearner implements Observer {
         Map<Integer, Double> mapItemsVotesOnlyGroup = new HashMap<>();
         Iterator<FciValue> itGlobal = mapFciWeightGlobal.iterator();
         Iterator<FciValue> itGroup = mapFciWeightGroup.iterator();
-//        int cntVotes = 0;
-//        
+        
         while(itGlobal.hasNext() || itGroup.hasNext()){
             if(itGlobal.hasNext()){
                FciValue fci = itGlobal.next();
@@ -537,20 +536,21 @@ public class PatternsMine3 extends AbstractLearner implements Observer {
                    if(mapItemsVotes.containsKey(item)){
                        Double newVal = mapItemsVotes.get(item) + fci.getLcsVal()*fci.getSupport();
                        mapItemsVotes.put(item, newVal);
-                       mapItemsVotesOnlyGlobal.put(item, newVal);
                    }else{
                        if(!window.contains(item)){
                            Double newVal =  fci.getLcsVal()*fci.getSupport();
                            mapItemsVotes.put(item, newVal);
-                           mapItemsVotesOnlyGlobal.put(item, newVal);
-//                           cntVotes++;
-//                           if(cntVotes > Configuration.MAX_VOTES){
-//                                break;
-//                           }
                        }
-                       
                    }
-                   
+                   if(mapItemsVotesOnlyGlobal.containsKey(item)){
+                        Double newVal = mapItemsVotesOnlyGlobal.get(item) + fci.getLcsVal()*fci.getSupport();
+                        mapItemsVotesOnlyGlobal.put(item, newVal);
+                   }else{
+                        if(!window.contains(item)){
+                            Double newVal =  fci.getLcsVal()*fci.getSupport();
+                            mapItemsVotesOnlyGlobal.put(item, newVal);
+                        }
+                   }
                }
             }
             if(itGroup.hasNext()){
@@ -561,23 +561,23 @@ public class PatternsMine3 extends AbstractLearner implements Observer {
                    if(mapItemsVotes.containsKey(item)){
                        Double newVal = mapItemsVotes.get(item) + fci.getLcsVal()*fci.getSupport();
                        mapItemsVotes.put(item, newVal);
-                       mapItemsVotesOnlyGroup.put(item, newVal);
                    }else{
                        if(!window.contains(item)){
                            Double newVal =  fci.getLcsVal()*fci.getSupport();
                            mapItemsVotes.put(item, newVal);
-                           mapItemsVotesOnlyGroup.put(item, newVal);
-//                           cntVotes++;
-//                           if(cntVotes > Configuration.MAX_VOTES){
-//                                break;
-//                           }
                        }
-                   }    
+                   }  
+                   if(mapItemsVotesOnlyGroup.containsKey(item)){
+                       Double newVal = mapItemsVotesOnlyGroup.get(item) + fci.getLcsVal()*fci.getSupport();
+                       mapItemsVotesOnlyGroup.put(item, newVal);
+                   }else{
+                       if(!window.contains(item)){
+                           Double newVal =  fci.getLcsVal()*fci.getSupport();
+                           mapItemsVotesOnlyGroup.put(item, newVal);
+                       }
+                   }   
                }
             }
-//            if(cntVotes > Configuration.MAX_VOTES){
-//                break;
-//            }
         }
         mapItemsVotes = MapUtil.sortByValue(mapItemsVotes);
         mapItemsVotesOnlyGlobal = MapUtil.sortByValue(mapItemsVotesOnlyGlobal);
@@ -628,6 +628,9 @@ public class PatternsMine3 extends AbstractLearner implements Observer {
         cntOnlyGlobal = 0;
         recsGroup = new ArrayList<>();
         recsGlobal = new ArrayList<>();
+        recsCombined = new ArrayList<>();
+        recsOnlyFromGroup = new ArrayList<>();
+        recsOnlyFromGlobal = new ArrayList<>();
         int numRecommendedItems = this.numberOfRecommendedItemsOption.getValue();
         
         for(FciValue fciVal : mapFciWeight) {
@@ -643,6 +646,7 @@ public class PatternsMine3 extends AbstractLearner implements Observer {
                     }else{
                         recsGlobal.add(item);
                     }
+                    recsCombined.add(item);
                     cntAll++;
                     if(cntAll >= numRecommendedItems){
                         break;
@@ -654,7 +658,7 @@ public class PatternsMine3 extends AbstractLearner implements Observer {
             }
         }
         
-        recsOnlyFromGroup = new ArrayList<>(); 
+        
         for(FciValue fciVal : mapFciWeightGroup) {
             SemiFCI key = fciVal.getFci();
             List<Integer> items = key.getItems();
@@ -674,7 +678,7 @@ public class PatternsMine3 extends AbstractLearner implements Observer {
             }
         }
         
-        recsOnlyFromGlobal = new ArrayList<>(); 
+        
         for(FciValue fciVal : mapFciWeightGlobal) {
             SemiFCI key = fciVal.getFci();
             List<Integer> items = key.getItems();
@@ -693,6 +697,10 @@ public class PatternsMine3 extends AbstractLearner implements Observer {
                  break;
             }
         }
+    }
+
+    public void clear() {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
    
 

@@ -105,11 +105,15 @@ public class AlgoCharm_Bitset {
 		sortChildren(root);
 
 		while (root.getChildNodes().size() > 0) {
+                    if(hash.count > Configuration.MAX_FCI_SET_COUNT 
+                            || this.getExecTime() > Configuration.MAX_UPDATE_TIME){
+                        System.out.println("OUT OF TIME AND SIZE");
+                        break;
+                    }
                     ITNode child = root.getChildNodes().get(0);
                     extend(child);
                     save(child);
                     delete(child);
-
 		}
 
 		saveAllClosedItemsets();
@@ -119,6 +123,7 @@ public class AlgoCharm_Bitset {
 	}
         
         public long getExecTime(){
+            endTimestamp = System.currentTimeMillis();
             return endTimestamp - startTimestamp;
         }
 

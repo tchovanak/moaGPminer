@@ -41,7 +41,6 @@ public class Segment implements Serializable{
     private Context context;
     private int MAX_ITEMSET_LENGTH;
     private double minSupport;
-    private AlgoCharm_Bitset charmBitset = new AlgoCharm_Bitset();
     
     /**
      * Default constructor. Creates a new empty segment.
@@ -80,8 +79,9 @@ public class Segment implements Serializable{
      * @return list of FCIs
      */
     public List<SemiFCI> getFCI() {
-        Itemsets closedItemsets = charmBitset.runAlgorithm(context, minSupport, 1000000);
-        System.out.println("Compute FCIs:" + charmBitset.getExecTime() + "ms\n (CHARM-BITSET)");
+        AlgoCharm_Bitset charm = new AlgoCharm_Bitset();
+        Itemsets closedItemsets = charm.runAlgorithm(context, minSupport, 1000000);
+        System.out.println("Compute FCIs:" + charm.getExecTime() + "ms\n (CHARM-BITSET)");
         System.out.println(closedItemsets.getItemsetsCount() + " FCIs found in the last segment (CHARM-BITSET)");
         List<SemiFCI> fciSet = new ArrayList<SemiFCI>();
         double startUpdateTime = TimingUtils.getNanoCPUTimeOfCurrentThread();
