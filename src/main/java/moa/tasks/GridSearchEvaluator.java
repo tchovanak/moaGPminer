@@ -148,14 +148,28 @@ public class GridSearchEvaluator extends MainTask {
                 writer.append("CLU:NUM OF MICROKERNELS");writer.append(',');
                 writer.append("CLU:KERNEL RADI FACTOR");writer.append(',');
                 // RESULTS 
-                writer.append("GG: HITS FROM GLOBAL");writer.append(',');
-                writer.append("GG: HITS FROM GROUP");writer.append(',');
-                writer.append("GG: ALL HITS");writer.append(',');
-                writer.append("GG: REAL RECOMMENDED ITEMS");writer.append(',');
+                writer.append("GGC:ALL HITS");writer.append(',');
+                writer.append("GGC:HITS FROM GROUP");writer.append(',');
+                writer.append("GGC:REAL RECOMMENDED");writer.append(',');
+                writer.append("GGC:PRECISION");writer.append(',');
+                writer.append("GGC:RECALL");writer.append(',');
+                writer.append("GGC:F1");writer.append(',');
+                writer.append("GGC:NDCG");writer.append(',');
+                
                 writer.append("GO: ALL HITS");writer.append(',');
-                writer.append("GO: REAL RECOMMENDED ITEMS");writer.append(',');
+                writer.append("GG: REAL RECOMMENDED ITEMS");writer.append(',');
+                writer.append("GO:PRECISION");writer.append(',');
+                writer.append("GO:RECALL");writer.append(',');
+                writer.append("GO:F1");writer.append(',');
+                writer.append("GO:NDCG");writer.append(',');
+                
                 writer.append("OG: ALL HITS");writer.append(',');
                 writer.append("OG: REAL RECOMMENDED ITEMS");writer.append(',');
+                writer.append("OG:PRECISION");writer.append(',');
+                writer.append("OG:RECALL");writer.append(',');
+                writer.append("OG:F1");writer.append(',');
+                writer.append("OG:NDCG");writer.append(',');
+                
                 writer.append("MAX RECOMMENDED ITEMS");writer.append(',');
                 writer.append("DURATION IN SECONDS");writer.append(',');
                 writer.append("TRANSACTIONS PER SECOND");writer.append(',');
