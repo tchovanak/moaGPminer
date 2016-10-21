@@ -13,13 +13,17 @@ import java.util.logging.Logger;
 import moa.MOAObject;
 import moa.core.Example;
 import moa.core.ObjectRepository;
+import moa.core.SemiFCI;
 import moa.core.TimingUtils;
 import moa.evaluation.PatternsRecommendationEvaluator;
+import moa.learners.FciValue;
 import moa.learners.PatternsMine3;
 import moa.streams.SessionsFileStream;
 import moa.utils.Configuration;
 import moa.utils.RecommendStrategiesEnum;
 import moa.utils.SortStrategiesEnum;
+import moa.learners.RecommendationResults;
+import moa.learners.SummaryResults;
 
 /**
  *
@@ -108,6 +112,7 @@ public class GPLearnEvaluateTask implements Task {
         // initialize and configure learner
         PatternsMine3 learner = new PatternsMine3();
         for(int i = 0; i < 2; i++){
+            this.grouping = true;
             configureLearnerWithParams(learner, params);
             double originalUPDATETIME = 
                     (learner.fixedSegmentLengthOption.getValue() 
@@ -124,22 +129,28 @@ public class GPLearnEvaluateTask implements Task {
                             this.pathToOutputFile + "results_G" + grouping + 
                                     "_id_" + id + ".csv");
             int counter = 0;
-            //long start = TimingUtils.getNanoCPUTimeOfCurrentThread();
             long start = TimingUtils.getNanoCPUTimeOfCurrentThread();
             double transsec = 0.0;
             int windowSize = learner.evaluationWindowSizeOption.getValue();
-            int numberOfRecommendedItems = learner.numberOfRecommendedItemsOption.getValue();
             updateLastParams(learner);
             while (stream.hasMoreInstances()) {
                 counter++;
+                if(counter == Configuration.EXTRACT_PATTERNS_AT){
+                    // NOW EXTRACT PATTERNS TO FILE
+                    extractPatternsToFile(learner.extractPatterns(), this.pathToOutputFile + "patterns_" + id + ".csv");
+                }
                 Example trainInst = stream.nextInstance();
                 /// FOR TESTING LONG TIME SURVIVING OF APPLICATION
 //                if(!stream.hasMoreInstances()){
 //                    stream.restart();
 //                }
                 Example testInst = (Example) trainInst.copy();
-                double[] recommendations = learner.getVotesForInstance(testInst);
-                evaluator.addResult(testInst, recommendations, windowSize, numberOfRecommendedItems, transsec, counter); // evaluator will evaluate recommendations and update metrics with given results     
+                if(counter > Configuration.START_EVALUATING_FROM){
+                    RecommendationResults results = learner.getRecommendationsForInstance(testInst);
+                    if(results != null)
+                        evaluator.addResult(results, windowSize, transsec, counter); // evaluator will evaluate recommendations and update metrics with given results     
+                }
+                
                 learner.trainOnInstance(trainInst); // this will start training proces - it means first update clustering and then find frequent patterns
                 long end = TimingUtils.getNanoCPUTimeOfCurrentThread();
                 //long end = System.nanoTime();
@@ -173,8 +184,11 @@ public class GPLearnEvaluateTask implements Task {
             long end = TimingUtils.getNanoCPUTimeOfCurrentThread();
             double tp =((double)(end - start) / 1e9);
             transsec = counter/tp;
-            double[] results = evaluator.getResults();
+            SummaryResults results = evaluator.getResults();
             writeResultsToFile(results, transsec, tp, counter);
+            
+            
+            
             if(!repeatWithGrouping){
                 break;
             }else if(i == 0){
@@ -184,6 +198,25 @@ public class GPLearnEvaluateTask implements Task {
         }
         System.gc();
         return null;
+    }
+    
+    private void extractPatternsToFile(List<FciValue> allPatterns, String pathToFile) {
+        try {
+            FileWriter pwriter = new FileWriter(pathToFile, true);
+            pwriter.append("GROUPID");pwriter.append(',');
+            pwriter.append("SUPPORT");pwriter.append(',');
+            pwriter.append("ITEMS");pwriter.append(',');
+            pwriter.append('\n');
+            for(FciValue fci : allPatterns){
+                pwriter.append(((Integer)fci.getGroupid()).toString());pwriter.append(','); 
+                pwriter.append(((Double)fci.getSupport()).toString());pwriter.append(','); 
+                pwriter.append((fci.getFci().getItems()).toString().replaceAll(","," "));pwriter.append(','); 
+                pwriter.append('\n');
+            }
+            pwriter.close();
+        } catch (IOException ex) {
+            Logger.getLogger(GPLearnEvaluateTask.class.getName()).log(Level.SEVERE, null, ex);
+        }
     }
     
      private boolean checkLastParamsForNotGroupingChange(List<Parameter> params){
@@ -254,16 +287,7 @@ public class GPLearnEvaluateTask implements Task {
         learner.minSupportOption.setValue(params.get(4).getValue());
         learner.relaxationRateOption.setValue(params.get(5).getValue());
         learner.fixedSegmentLengthOption.setValue((int) (params.get(6).getValue()));
-        double gfsl = params.get(7).getValue();
-        if(gfsl > 0){
-            learner.groupFixedSegmentLengthOption.setValue((int) params.get(7).getValue());
-        }else if(gfsl == 0){
-            learner.groupFixedSegmentLengthOption.setValue(
-                (int)(((double)learner.fixedSegmentLengthOption.getValue())/
-                        ((double)learner.numberOfGroupsOption.getValue())));
-        }else{
-            learner.groupFixedSegmentLengthOption.setValue(learner.fixedSegmentLengthOption.getValue());
-        }
+        
         learner.maxItemsetLengthOption.setValue((int) params.get(8).getValue());
         learner.windowSizeOption.setValue((int) params.get(9).getValue());
         // RESTRICTIONS PARAMETERS
@@ -278,6 +302,18 @@ public class GPLearnEvaluateTask implements Task {
         learner.numberOfGroupsOption.setValue((int) params.get(17).getValue());
         learner.maxNumKernelsOption.setValue((int) params.get(18).getValue());
         learner.kernelRadiFactorOption.setValue((int) params.get(19).getValue());
+        Configuration.START_EVALUATING_FROM = (int) params.get(20).getValue();
+        
+        double gfsl = params.get(7).getValue();
+        if(gfsl > 0){
+            learner.groupFixedSegmentLengthOption.setValue((int) params.get(7).getValue());
+        }else if(gfsl == 0){
+            learner.groupFixedSegmentLengthOption.setValue(
+                (int)(((double)learner.fixedSegmentLengthOption.getValue())/
+                        ((double)learner.numberOfGroupsOption.getValue())));
+        }else{
+            learner.groupFixedSegmentLengthOption.setValue(learner.fixedSegmentLengthOption.getValue());
+        }
         
     }
     
@@ -298,6 +334,7 @@ public class GPLearnEvaluateTask implements Task {
             writer.append(((Double)(double)learner.groupFixedSegmentLengthOption.getValue()).toString());writer.append(',');
             writer.append(((Double)(double)learner.maxItemsetLengthOption.getValue()).toString());writer.append(',');
             writer.append(((Double)(double)learner.windowSizeOption.getValue()).toString());writer.append(',');
+            
             //UNIVERSAL PARAMETERS
             writer.append(((Double)(double)learner.maxNumPages.getValue()).toString());writer.append(',');
             writer.append(((Double)(double)learner.maxNumUserModels.getValue()).toString());writer.append(',');
@@ -305,6 +342,7 @@ public class GPLearnEvaluateTask implements Task {
             writer.append(((Double)Configuration.SPEED_PARAM).toString());writer.append(',');
             writer.append(((Double)Configuration.MIN_TRANSSEC).toString());writer.append(',');
             writer.append(((Double)Configuration.MAX_UPDATE_TIME).toString());writer.append(',');
+            writer.append(((Integer)Configuration.START_EVALUATING_FROM).toString());writer.append(',');
             // CLUSTERING PARAMETERS
             if(this.grouping){
                 writer.append(((Double)(double) learner.numMinNumberOfChangesInUserModel.getValue()).toString());writer.append(',');
@@ -326,12 +364,34 @@ public class GPLearnEvaluateTask implements Task {
          }
     }
 
-    private void writeResultsToFile(double[] results, double transsec, double tp, int counter){
+    private void writeResultsToFile(SummaryResults results, double transsec, double tp, int counter){
         try{
             this.writer = new FileWriter(this.pathToSummaryOutputFile, true);
-            for(double res :results){
-                writer.append(((Double)res).toString());writer.append(',');
-            }
+            
+            writer.append(results.getAllHitsGGC().toString());writer.append(',');
+            writer.append(results.getRealRecommendedGGC().toString());writer.append(',');
+            writer.append(results.getPrecisionGGC().toString());writer.append(',');
+            writer.append(results.getRecallGGC().toString());writer.append(',');
+            writer.append(results.getF1GGC().toString());writer.append(',');
+            writer.append(results.getNdcgGGC().toString());writer.append(',');
+            
+            writer.append(results.getAllHitsGO().toString());writer.append(',');
+            writer.append(results.getRealRecommendedGO().toString());writer.append(',');
+            writer.append(results.getPrecisionGO().toString());writer.append(',');
+            writer.append(results.getRecallGO().toString());writer.append(',');
+            writer.append(results.getF1GO().toString());writer.append(',');
+            writer.append(results.getNdcgGO().toString());writer.append(',');
+            
+            writer.append(results.getAllHitsOG().toString());writer.append(',');
+            writer.append(results.getRealRecommendedOG().toString());writer.append(',');
+            writer.append(results.getPrecisionOG().toString());writer.append(',');
+            writer.append(results.getRecallOG().toString());writer.append(',');
+            writer.append(results.getF1OG().toString());writer.append(',');
+            writer.append(results.getNdcgOG().toString());writer.append(',');
+            
+            writer.append(results.getAllTestedItems().toString());writer.append(',');
+            writer.append(results.getAllTestedTransactions().toString());writer.append(',');
+            writer.append(results.getMaxRecommendedItems().toString());writer.append(',');
             writer.append(((Double)tp).toString());writer.append(',');
             writer.append(((Double)transsec).toString());writer.append(',');
             writer.append(((Integer)counter).toString());writer.append('\n');
@@ -390,5 +450,7 @@ public class GPLearnEvaluateTask implements Task {
     public double[] getLastparams() {
         return lastparams;
     }
+
+    
     
 }

@@ -56,7 +56,7 @@ public class GridSearchFCIValueEvaluator  {
             Example trainInst = stream.nextInstance();
             Example testInst = (Example) trainInst.copy();
             double[] recommendations = learner.getVotesForInstance(testInst);
-            evaluator.addResult(testInst, recommendations, windowSize, numberOfRecommendedItems, transsec, counter); // evaluator will evaluate recommendations and update metrics with given results     
+            //evaluator.addResult(testInst, recommendations, windowSize, numberOfRecommendedItems, transsec, counter); // evaluator will evaluate recommendations and update metrics with given results     
             learner.trainOnInstance(trainInst); // this will start training proces - it means first update clustering and then find frequent patterns
             long end = TimingUtils.getNanoCPUTimeOfCurrentThread();
             //long end = System.nanoTime();
@@ -78,8 +78,8 @@ public class GridSearchFCIValueEvaluator  {
         long end = TimingUtils.getNanoCPUTimeOfCurrentThread();
         double tp =((double)(end - start) / 1e9);
         transsec = counter/tp;
-        double[] results = evaluator.getResults();
-        writeResultsToFile(results, transsec, tp, counter);   
+        //double[] results = evaluator.getResults();
+        //writeResultsToFile(results, transsec, tp, counter);   
     }
     
     

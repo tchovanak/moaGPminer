@@ -86,10 +86,10 @@ public class Segment implements Serializable{
         List<SemiFCI> fciSet = new ArrayList<SemiFCI>();
         double startUpdateTime = TimingUtils.getNanoCPUTimeOfCurrentThread();
         for(int levelIndex = 0; levelIndex < closedItemsets.getLevels().size(); levelIndex++){
-            double endUpdateTime = TimingUtils.getNanoCPUTimeOfCurrentThread();
-            if (this.MAX_ITEMSET_LENGTH != -1 && levelIndex > this.MAX_ITEMSET_LENGTH){
+            if ((this.MAX_ITEMSET_LENGTH != -1 && levelIndex > this.MAX_ITEMSET_LENGTH)){
                 break;
             }
+            double endUpdateTime = TimingUtils.getNanoCPUTimeOfCurrentThread();
             if(((endUpdateTime - startUpdateTime)/1e6 > Configuration.MAX_UPDATE_TIME)){
                 break;
             }

@@ -100,13 +100,13 @@ public class PatternsMine3 extends AbstractLearner implements Observer {
             "useGroupingFlag", 'f',
             "If flag is set grouping is used.");
     
+  
+    
     
     private int cntAll = 0;
-    private List<Integer> recsGlobal = new ArrayList<Integer>();
-    private List<Integer> recsGroup = new ArrayList<Integer>();
-    private List<Integer> recsOnlyFromGlobal = new ArrayList<Integer>();
-    private List<Integer> recsOnlyFromGroup = new ArrayList<Integer>();
-    private List<Integer> recsCombined = new ArrayList<Integer>();
+    private List<Integer> recsOnlyFromGlobal = new ArrayList<>();
+    private List<Integer> recsOnlyFromGroup = new ArrayList<>();
+    private List<Integer> recsCombined = new ArrayList<>();
     
     private Clustering kmeansClustering;
     private int cntOnlyGroup;
@@ -197,8 +197,8 @@ public class PatternsMine3 extends AbstractLearner implements Observer {
         incMine.trainOnInstance(e.copy());   // then train on instance without groupid - global
     }
 
-    @Override
-    public double[] getVotesForInstance(Example e) {
+    
+    public RecommendationResults getRecommendationsForInstance(Example e) {
         // append group to instance that it belongs to...
         Instance session = (Instance)e.getData();
         // we need to copy instance data to sessionArray where we can modify them 
@@ -213,7 +213,12 @@ public class PatternsMine3 extends AbstractLearner implements Observer {
         // get window from actual instance
         List<Integer> window = new ArrayList<>(); // items inside window 
         List<Integer> outOfWindow = new ArrayList<>(); // items out of window 
-        if(evaluationWindowSize >= (sessionArray.size()-2)){ 
+        
+        int outOfWindowSize = ((sessionArray.size() - 2) - evaluationWindowSize);
+        if((evaluationWindowSize >= (sessionArray.size()-2))
+            || (outOfWindowSize
+                < this.numberOfRecommendedItemsOption.getValue()) 
+                ){ 
             return null; // this is when session array is too short - it is ignored.
         }
         for(int i = 2; i <= evaluationWindowSize + 1; i++){ // first item is groupid, 2nd uid
@@ -223,13 +228,13 @@ public class PatternsMine3 extends AbstractLearner implements Observer {
         for(int i = evaluationWindowSize + 2, j = 0; i < sessionArray.size(); i++){
             outOfWindow.add((int) Math.round(sessionArray.get(i)));
         }
-        List<Integer> recommendations = new ArrayList<>();
-        // how to get all fcis found ?
+       
+        //to get all fcis found 
         Iterator<SemiFCI> it = this.incMine.fciTableGlobal.iterator();
         
-        List<FciValue> mapFciWeight = new LinkedList<FciValue>();
-        List<FciValue> mapFciWeightGroup = new LinkedList<FciValue>();
-        List<FciValue> mapFciWeightGlobal = new LinkedList<FciValue>();
+        List<FciValue> mapFciWeight = new LinkedList<>();
+        List<FciValue> mapFciWeightGroup = new LinkedList<>();
+        List<FciValue> mapFciWeightGlobal = new LinkedList<>();
         
         while(it.hasNext()){
             SemiFCI fci = null;
@@ -244,13 +249,10 @@ public class PatternsMine3 extends AbstractLearner implements Observer {
                 if(hitsVal == 0.0){
                     continue;
                 }
-                double approximateSupport = (double)fci.getApproximateSupport();
-                double support = 
-                       approximateSupport/
-                        ((double)(this.fixedSegmentLengthOption.getValue()))*((double)(this.windowSizeOption.getValue()));
-                if(support < this.minSupportOption.getValue()){
-                    continue;
-                }
+                double support = this.calculateSupport(fci);
+//                if(support < this.minSupportOption.getValue()){
+//                    continue;
+//                }
                 FciValue fciVal = new FciValue();
                 fciVal.setFci(fci);
                 fciVal.computeValue(hitsVal, support, 0, minSupportOption.getValue());
@@ -287,13 +289,10 @@ public class PatternsMine3 extends AbstractLearner implements Observer {
                         if(hitsVal == 0.0){
                             continue;
                         }
-                        double approximateSupport = (double)fci.getApproximateSupport();
-                        double support = 
-                               approximateSupport/
-                                ((double)(this.fixedSegmentLengthOption.getValue()))*((double)(this.windowSizeOption.getValue()));
-                        if(support < this.minSupportOption.getValue()){
-                            continue;
-                        }
+                        double support = this.calculateSupport(fci);
+//                        if(support < (this.minSupportOption.getValue())){
+//                            continue;
+//                        }
                         FciValue fciVal = new FciValue();
                         fciVal.setGroupFciFlag(true);
                        
@@ -318,9 +317,6 @@ public class PatternsMine3 extends AbstractLearner implements Observer {
         Collections.sort(mapFciWeight);
         Collections.sort(mapFciWeightGroup);
         Collections.sort(mapFciWeightGlobal);
-        recsGlobal = new ArrayList<Integer>();
-        recsGroup = new ArrayList<Integer>();
-        recsCombined = new ArrayList<Integer>();
         switch (Configuration.RECOMMEND_STRATEGY) {
             case VOTES:
                 generateRecsVoteStrategy(mapFciWeightGlobal,
@@ -333,23 +329,74 @@ public class PatternsMine3 extends AbstractLearner implements Observer {
         }
         
         
-        double lcsValFromGlobal = LCS.computeLongestCommonSubset(outOfWindow, recsGlobal);
-        double lcsValFromGroup = LCS.computeLongestCommonSubset(outOfWindow, recsGroup);
-        double lcsValCombined = LCS.computeLongestCommonSubset(outOfWindow, recsCombined);
-        double lcsValOnlyFromGlobal = LCS.computeLongestCommonSubset(outOfWindow, recsOnlyFromGlobal);
-        double lcsValOnlyFromGroup = LCS.computeLongestCommonSubset(outOfWindow, recsOnlyFromGroup);
-        // lcsVal contains number of items that are same in outOfWindow and recs
-        double[] lcsValues = new double[8];
-        lcsValues[0] = lcsValFromGlobal; // in future the window will slide over actual session. 
-        lcsValues[1] = lcsValFromGroup;
-        lcsValues[2] = lcsValCombined;
-        lcsValues[3] = cntAll;   // Now only one set of recommended items is created
-        lcsValues[4] = lcsValOnlyFromGlobal; // in future the window will slide over actual session. 
-        lcsValues[5] = cntOnlyGlobal; // in future the window will slide over actual session.         lcsValues[1] = lcsValFromGroup; 
-        lcsValues[6] = lcsValOnlyFromGroup; 
-        lcsValues[7] = cntOnlyGroup;
-        return lcsValues;
+//        double lcsValFromGlobal = LCS.computeLongestCommonSubset(outOfWindow, recsGlobal);
+//        double lcsValFromGroup = LCS.computeLongestCommonSubset(outOfWindow, recsGroup);
+//        double lcsValCombined = LCS.computeLongestCommonSubset(outOfWindow, recsCombined);
+//        double lcsValOnlyFromGlobal = LCS.computeLongestCommonSubset(outOfWindow, recsOnlyFromGlobal);
+//        double lcsValOnlyFromGroup = LCS.computeLongestCommonSubset(outOfWindow, recsOnlyFromGroup);
+//        // lcsVal contains number of items that are same in outOfWindow and recs
+//        double[] lcsValues = new double[8];
+//        lcsValues[0] = lcsValFromGlobal; // in future the window will slide over actual session. 
+//        lcsValues[1] = lcsValFromGroup;
+//        lcsValues[2] = lcsValCombined;
+//        lcsValues[3] = cntAll;   // Now only one set of recommended items is created
+//        lcsValues[4] = lcsValOnlyFromGlobal; // in future the window will slide over actual session. 
+//        lcsValues[5] = cntOnlyGlobal; // in future the window will slide over actual session.         lcsValues[1] = lcsValFromGroup; 
+//        lcsValues[6] = lcsValOnlyFromGroup; 
+//        lcsValues[7] = cntOnlyGroup;
+//        return lcsValues;
         
+          RecommendationResults results = new RecommendationResults();
+          results.setTestWindow(outOfWindow);
+          results.setNumOfRecommendedItems(this.numberOfRecommendedItemsOption.getValue());
+          results.setRecommendationsGGC(recsCombined);
+          results.setRecommendationsGO(recsOnlyFromGlobal);
+          results.setRecommendationsOG(recsOnlyFromGroup);
+          return results;
+    }
+    
+    public List<FciValue> extractPatterns(){
+        FCITable fciTableGlobal = this.incMine.fciTableGlobal;
+        List<FCITable> fciTablesGroup = this.incMine.fciTablesGroups;
+        List<FciValue> allPatterns = new ArrayList<>();
+        Iterator<SemiFCI> it = fciTableGlobal.iterator();
+        while(it.hasNext()){
+            SemiFCI sfci = it.next();
+            double support = this.calculateSupport(sfci);
+            if(support >= this.minSupportOption.getValue()){
+                FciValue fciVal = new FciValue();
+                fciVal.setFci(sfci);
+                fciVal.setSupport(support);
+                fciVal.setGroupid(-1);
+                allPatterns.add(fciVal);
+            }
+        }
+        int groupid = 0;
+        for(FCITable gTable: fciTablesGroup){
+            it = gTable.iterator();
+            while(it.hasNext()){
+                SemiFCI sfci = it.next();
+                double support = this.calculateSupport(sfci);
+                if(support >= this.minSupportOption.getValue()){
+                    FciValue fciVal = new FciValue();
+                    fciVal.setFci(sfci);
+                    fciVal.setSupport(support);
+                    fciVal.setGroupid(groupid);
+                    allPatterns.add(fciVal);
+                }
+            }
+            groupid++;
+        }
+        return allPatterns;
+    }
+    
+    
+    private double calculateSupport(SemiFCI fci){
+        double approxSupport = (double)fci.getApproximateSupport();
+        double support = approxSupport/
+                ((double)(this.fixedSegmentLengthOption.getValue())*
+                (double)(this.windowSizeOption.getValue())); 
+        return support;
     }
     
     public void updateGroupidsInUserModels() {
@@ -583,11 +630,8 @@ public class PatternsMine3 extends AbstractLearner implements Observer {
         mapItemsVotesOnlyGlobal = MapUtil.sortByValue(mapItemsVotesOnlyGlobal);
         mapItemsVotesOnlyGroup = MapUtil.sortByValue(mapItemsVotesOnlyGroup);
         recsCombined = new ArrayList<Integer>();
-        recsGlobal = new ArrayList<Integer>();
-        recsGroup = new ArrayList<Integer>();
         recsOnlyFromGlobal = new ArrayList<Integer>();
         recsOnlyFromGroup = new ArrayList<Integer>();
-        recsGroup = new ArrayList<Integer>();
         int numRecommendedItems = this.numberOfRecommendedItemsOption.getValue();
         cntAll = 0;
         cntOnlyGlobal = 0;
@@ -626,8 +670,6 @@ public class PatternsMine3 extends AbstractLearner implements Observer {
         cntAll = 0;
         cntOnlyGroup = 0; 
         cntOnlyGlobal = 0;
-        recsGroup = new ArrayList<>();
-        recsGlobal = new ArrayList<>();
         recsCombined = new ArrayList<>();
         recsOnlyFromGroup = new ArrayList<>();
         recsOnlyFromGlobal = new ArrayList<>();
@@ -639,13 +681,7 @@ public class PatternsMine3 extends AbstractLearner implements Observer {
             Iterator<Integer> itItems = items.iterator();
             while(itItems.hasNext()){
                 Integer item =  itItems.next();
-                if(!window.contains(item) && !recsGroup.contains(item) 
-                        && !recsGlobal.contains(item)){  // create unique recommendations
-                    if(fciVal.getGroupFciFlag()){
-                        recsGroup.add(item);
-                    }else{
-                        recsGlobal.add(item);
-                    }
+                if(!window.contains(item) && !recsCombined.contains(item)){  // create unique recommendations
                     recsCombined.add(item);
                     cntAll++;
                     if(cntAll >= numRecommendedItems){
@@ -700,6 +736,11 @@ public class PatternsMine3 extends AbstractLearner implements Observer {
     }
 
     public void clear() {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    @Override
+    public double[] getVotesForInstance(Example e) {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
    

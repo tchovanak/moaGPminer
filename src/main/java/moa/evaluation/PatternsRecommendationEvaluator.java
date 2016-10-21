@@ -27,8 +27,12 @@ import java.util.LinkedList;
 import java.util.Queue;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.BitSet;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import moa.learners.RecommendationResults;
+import moa.learners.SummaryResults;
+import moa.utils.LCS;
 
 /**
  * Pattern mining evaluator that performs basic incremental evaluation. 
@@ -37,18 +41,29 @@ import java.util.logging.Logger;
 public class PatternsRecommendationEvaluator extends AbstractMOAObject{
 
     private final Queue<Double> window = new LinkedList<>();
-    private int maxRecommendedItems = 0; 
+    private int ggSumAllHits = 0;
+    private int ggSumRealRecommended = 0;
     
-    private int ggHits =  0;  // all items hitted by group + global patterns
-    private int ggRealRecommendedItems = 0; // number of items that were really recommended to user
-    private int ggHitsGlobal =  0;  // all items hitted by group + global patterns
-    private int ggHitsGroup =  0;  // all items hitted by group + global patterns
+    private int goSumAllHits = 0;
+    private int goSumRealRecommended = 0;
+   
+    private int ogSumAllHits = 0;
+    private int ogSumRealRecommended = 0;
     
-    private int goHits =  0;  // all items hitted by only global patterns
-    private int goRealRecommendedItems = 0; // number of items that were really recommended to user
+    private int maxRecommendedItems = 0;
+    private int allTestedItems = 0;
     
-    private int ogHits =  0;  // all items hitted by only group patterns
-    private int ogRealRecommendedItems = 0; // number of items that were really recommended to user
+    private double ggSumNDCG = 0;
+    private double ggSumPrecision = 0;
+    private double ggSumRecall = 0;
+    private double goSumNDCG = 0;
+    private double goSumPrecision = 0;
+    private double goSumRecall = 0;
+    private double ogSumNDCG = 0;
+    private double ogSumPrecision = 0;
+    private double ogSumRecall = 0;
+    
+    private int numOfTestedTransactions = 0;
     
     private String outputFile;
     private FileWriter writer = null;
@@ -58,19 +73,22 @@ public class PatternsRecommendationEvaluator extends AbstractMOAObject{
         try {
             this.writer = new FileWriter(outputFile);
             writer.append("TRANSACTION ID");writer.append(',');  // transaction id
-            writer.append("TRANSACTION LENGTH");writer.append(',');  // transaction length
+            writer.append("TOTAL LENGTH");writer.append(',');  // transaction length
             writer.append("TEST LENGTH");writer.append(',');  // evaluation test length
-            writer.append("GG GLOBAL INDIVIDUAL HITS");writer.append(',');  // number of hits from global
-            writer.append("GG GROUP INDIVIDUAL HITS");writer.append(',');  // number of hits from group
-            writer.append("GO INDIVIDUAL HITS"); writer.append(',');  // number of hits from global
-            writer.append("OG INDIVIDUAL HITS"); writer.append(',');  // number of hits from group
-            writer.append("GG SUM ALL HITS");writer.append(',');  // number of hits from global + group
-            writer.append("GG SUM REAL RECOMMENDED");writer.append(',');  // number of hits from only group
-            writer.append("GO SUM ALL HITS");writer.append(',');  // number of hits from global + group
-            writer.append("GO SUM REAL RECOMMENDED");writer.append(',');  // number of hits from only group
-            writer.append("OG SUM ALL HITS");writer.append(',');  // number of hits from global + group
-            writer.append("OG SUM REAL RECOMMENDED");writer.append(',');  // number of hits from only group
-            writer.append("MAX RECOMMENDED ITEMS");writer.append(','); // number of items that should be recommended maxi
+            writer.append("H111");writer.append(',');  // evaluation test length
+            writer.append("H110");writer.append(',');  // evaluation test length
+            writer.append("H101");writer.append(',');  // evaluation test length
+            writer.append("H100");writer.append(',');  // evaluation test length
+            writer.append("H011");writer.append(',');  // evaluation test length
+            writer.append("H010");writer.append(',');  // evaluation test length
+            writer.append("H001");writer.append(',');  // evaluation test length
+            writer.append("H000");writer.append(',');  // evaluation test length
+            writer.append("PRECISION GG");writer.append(',');  // evaluation test length
+            writer.append("RECALL GG");writer.append(',');  // evaluation test length
+            writer.append("NDCG GG");writer.append(',');  // evaluation test length
+            writer.append("PRECISION GO");writer.append(',');  // evaluation test length
+            writer.append("RECALL GO");writer.append(',');  // evaluation test length
+            writer.append("NDCG GO");writer.append(',');  // evaluation test length
             writer.append("TRANSSEC");writer.append('\n');
             writer.flush();
         } catch (IOException ex) {
@@ -78,26 +96,38 @@ public class PatternsRecommendationEvaluator extends AbstractMOAObject{
         }
     }
     
-    private void writeResultsToFile(Integer counter, Integer sessionLength, Integer windowSize,
-                                    Double lggGlobalHits, Double lggGroupHits, Double lgoHits,
-                                    Double logHits, Double transsec) {
+    private void writeResultsToFile(Integer counter, Integer testSize, Integer windowSize,
+                                    BitSet h111, BitSet h110,BitSet h101,
+                                    BitSet h100, BitSet h011,BitSet h010,
+                                    BitSet h001, BitSet h000,
+                                    Double transsec) {
         try {
             if(this.writer == null)
                 this.writer = new FileWriter(outputFile);
             writer.append(counter.toString());writer.append(',');  // transaction id
-            writer.append(sessionLength.toString());writer.append(',');  // transaction length
-            writer.append(((Integer)(sessionLength - windowSize)).toString());writer.append(',');  // test length
-            writer.append((lggGlobalHits).toString());writer.append(',');  // number of really recommended items
-            writer.append((lggGroupHits).toString());writer.append(',');  // number of hits from global
-            writer.append((lgoHits).toString()); writer.append(','); // number of hits from group
-            writer.append((logHits).toString()); writer.append(',');  // number of hits from global
-            writer.append(((Integer)ggHits).toString());writer.append(',');  // number of hits from group
-            writer.append(((Integer)ggRealRecommendedItems).toString());writer.append(',');  // number of hits from group
-            writer.append(((Integer)goHits).toString());writer.append(',');  // number of hits from group
-            writer.append(((Integer)goRealRecommendedItems).toString());writer.append(',');  // number of hits from group
-            writer.append(((Integer)ogHits).toString());writer.append(',');  // number of hits from group
-            writer.append(((Integer)ogRealRecommendedItems).toString()); writer.append(',');  // number of hits from group
-            writer.append(((Integer)maxRecommendedItems).toString()); writer.append(','); // number of hits from group
+            writer.append(((Integer)(testSize + windowSize)).toString());writer.append(',');  // transaction length
+            writer.append(testSize.toString());writer.append(',');  // test length
+            writer.append(((Integer)h111.cardinality()).toString());writer.append(',');  // test length
+            writer.append(((Integer)h110.cardinality()).toString());writer.append(',');  // test length
+            writer.append(((Integer)h101.cardinality()).toString());writer.append(',');  // test length
+            writer.append(((Integer)h100.cardinality()).toString());writer.append(',');  // test length
+            writer.append(((Integer)h011.cardinality()).toString());writer.append(',');  // test length
+            writer.append(((Integer)h010.cardinality()).toString());writer.append(',');  // test length
+            writer.append(((Integer)h001.cardinality()).toString());writer.append(',');  // test length
+            writer.append(((Integer)h000.cardinality()).toString());writer.append(',');  // test length
+            Double ggprecision = ggSumPrecision / this.numOfTestedTransactions;
+            writer.append((ggprecision).toString());writer.append(','); 
+            Double ggrecall = ggSumRecall / this.numOfTestedTransactions;
+            writer.append((ggrecall).toString());writer.append(',');
+            Double ggndcg = ggSumNDCG / this.numOfTestedTransactions;
+            writer.append((ggndcg).toString());writer.append(','); 
+            Double goprecision = goSumPrecision / this.numOfTestedTransactions;
+            writer.append((goprecision).toString());writer.append(','); 
+            Double gorecall = goSumRecall / this.numOfTestedTransactions;
+            writer.append((gorecall).toString());writer.append(',');
+            Double gondcg = goSumNDCG / this.numOfTestedTransactions;
+            writer.append((gondcg).toString());writer.append(','); 
+            // number of hits from group
             writer.append((transsec).toString());writer.append('\n');
             writer.flush();
         } catch (IOException ex) {
@@ -106,61 +136,153 @@ public class PatternsRecommendationEvaluator extends AbstractMOAObject{
     }
     
     
-    public void addResult(Example instance, double[] recommendations, int windowSize, 
-            int numberOfRecommendedItems, double transsec, Integer counter) {
-        double lggGlobalHits = 0;
-        double lggGroupHits = 0;
-        double lggAllHits = 0;
-        double lggCnt = 0;
-        double lgoHits = 0;
-        double lgoCnt = 0;
-        double logHits = 0;
-        double logCnt = 0;
-        Instance session = (Instance)instance.getData();
-        Integer sessionLength = (Integer)(session.numValues() - 2);
-        this.maxRecommendedItems += numberOfRecommendedItems;
-        if(recommendations != null){
-            lggGlobalHits = recommendations[0];
-            lggGroupHits = recommendations[1];
-            lggAllHits =  recommendations[2];
-            lggCnt =  recommendations[3];
-            lgoHits = recommendations[4];
-            lgoCnt = recommendations[5];
-            logHits = recommendations[6];
-            logCnt = recommendations[7];
-            if(lggCnt > 0){
-                this.ggHits += lggAllHits;
-                this.ggHitsGlobal += lggGlobalHits;
-                this.ggHitsGroup += lggGroupHits;
-                this.ggRealRecommendedItems += lggCnt;
+    public void addResult(RecommendationResults recs, int windowSize, 
+            double transsec, Integer counter) {
+        
+        this.maxRecommendedItems += recs.getNumOfRecommendedItems();
+        
+        BitSet intersectGGC = LCS.computeIntersection(recs.getRecommendationsGGC(),recs.getTestWindow());
+        BitSet intersectGO = LCS.computeIntersection(recs.getRecommendationsGO(),recs.getTestWindow());
+        BitSet intersectOG = LCS.computeIntersection(recs.getRecommendationsOG(), recs.getTestWindow());
+        
+        BitSet h111 = (BitSet)intersectGGC.clone();
+        h111.and(intersectGO);
+        h111.and(intersectOG);
+        
+        BitSet h110 = (BitSet)intersectGO.clone();
+        h110.and(intersectOG);
+        h110.andNot(intersectGGC);
+        
+        BitSet h101 = (BitSet)intersectGO.clone();
+        h101.andNot(intersectOG);
+        h101.and(intersectGGC);
+        
+        BitSet h100 = (BitSet)intersectGO.clone();
+        h100.andNot(intersectOG);
+        h100.andNot(intersectGGC);
+        
+        BitSet h011 = ((BitSet)intersectGO.clone());
+        h011.flip(0, recs.getNumOfRecommendedItems());
+        h011.and(intersectOG);
+        h011.and(intersectGGC);
+        
+        BitSet h010 = ((BitSet)intersectGO.clone());
+        h010.flip(0, recs.getNumOfRecommendedItems());
+        h010.and(intersectOG);
+        h010.andNot(intersectGGC);
+        
+        BitSet h001 = ((BitSet)intersectGO.clone());
+        h001.flip(0, recs.getNumOfRecommendedItems());
+        h001.andNot(intersectOG);
+        h001.and(intersectGGC);
+        
+        
+        BitSet h000 = ((BitSet)intersectGO.clone());
+        h000.flip(0, recs.getNumOfRecommendedItems());
+        h000.andNot(intersectOG);
+        h000.andNot(intersectGGC);
+        
+        double idcg = 1;
+        for(int i = 1; i < recs.getNumOfRecommendedItems(); i++){
+            idcg += 1/Math.log(i + 1);
+        }
+        double dcgGG = 0;
+        for(int i = 0; i < intersectGGC.size();i++){
+            if(i == 0 && intersectGGC.get(0)){
+                dcgGG += 1;
+            }else{
+                if(intersectGGC.get(i)){
+                    dcgGG += 1/Math.log(i + 1);
+                }
             }
-            if(lgoCnt > 0){
-                this.goHits += lgoHits;
-                this.goRealRecommendedItems += lgoCnt;
+        }
+        double dcgGO = 0;
+        for(int i = 0; i < intersectGO.size();i++){
+            if(i == 0 && intersectGO.get(0)){
+                dcgGO += 1;
+            }else{
+                if(intersectGO.get(i)){
+                    dcgGO += 1/Math.log(i + 1);
+                }
             }
-            if(logCnt > 0){
-                this.ogHits += logHits;
-                this.ogRealRecommendedItems += logCnt;
+        }
+        double dcgOG = 0;
+        for(int i = 0; i < intersectOG.size();i++){
+            if(i == 0 && intersectOG.get(0)){
+                dcgOG += 1;
+            }else{
+                if(intersectOG.get(i)){
+                    dcgOG += 1/Math.log(i + 1);
+                }
             }
-        }   
-        writeResultsToFile(counter, sessionLength,(Integer)windowSize, 
-                (Double)lggGlobalHits,(Double)lggGroupHits,(Double)lgoHits,
-                (Double)logHits, transsec);
+        }
+        
+        this.ggSumAllHits += intersectGGC.cardinality();
+        this.ggSumRealRecommended += recs.getRecommendationsGGC().size();
+        this.goSumAllHits += intersectGO.cardinality();
+        this.goSumRealRecommended += recs.getRecommendationsGO().size();
+        this.ogSumAllHits += intersectOG.cardinality();
+        this.ogSumRealRecommended += recs.getRecommendationsOG().size();
+        this.allTestedItems += recs.getTestWindow().size();
+        this.numOfTestedTransactions += 1;
+        this.ggSumNDCG += dcgGG/idcg;
+        this.goSumNDCG += dcgGO/idcg;
+        this.ogSumNDCG += dcgOG/idcg;
+        this.ggSumPrecision += (double)intersectGGC.cardinality()/(double)recs.getNumOfRecommendedItems();
+        this.goSumPrecision += (double)intersectGO.cardinality()/(double)recs.getNumOfRecommendedItems();
+        this.ogSumPrecision += (double)intersectOG.cardinality()/(double)recs.getNumOfRecommendedItems();
+        this.ggSumRecall += (double)intersectGGC.cardinality()/(double)recs.getTestWindow().size();
+        this.goSumRecall += (double)intersectGO.cardinality()/(double)recs.getTestWindow().size();
+        this.ogSumRecall += (double)intersectOG.cardinality()/(double)recs.getTestWindow().size();
+        
+        
+        writeResultsToFile(counter, recs.getTestWindow().size(), windowSize,
+            h111, h110, h101, h100, h011, h010, h001, h000, transsec
+        );
         
 	
     }
     
-    public double[] getResults() {
-        double[] results = new double[9];
-        results[0] = ggHitsGlobal;
-        results[1] = ggHitsGroup;
-        results[2] = ggHits;
-        results[3] = ggRealRecommendedItems;
-        results[4] = goHits;
-        results[5] = goRealRecommendedItems;
-        results[6] = ogHits;
-        results[7] = ogRealRecommendedItems;
-        results[8] = maxRecommendedItems;
+    public SummaryResults getResults() {
+        SummaryResults results = new SummaryResults();
+        results.setAllHitsGGC(ggSumAllHits);
+        results.setAllHitsGO(goSumAllHits);
+        results.setAllHitsOG(ogSumAllHits);
+        
+        double ggprecision = ggSumPrecision / this.numOfTestedTransactions;
+        double ggrecall = ggSumRecall / this.numOfTestedTransactions;
+        double ggF1 = computeF1(ggprecision, ggrecall);
+        double ndcgGG = ggSumNDCG/numOfTestedTransactions;
+        
+        double goprecision = goSumPrecision / this.numOfTestedTransactions;
+        double gorecall = goSumRecall / this.numOfTestedTransactions;
+        double goF1 = computeF1(goprecision, gorecall);
+        double ndcgGO = goSumNDCG/numOfTestedTransactions;
+        
+        double ogprecision = ogSumPrecision / this.numOfTestedTransactions;
+        double ogrecall = ogSumRecall / this.numOfTestedTransactions;
+        double ogF1 = computeF1(ogprecision, ogrecall);
+        double ndcgOG = ogSumNDCG/numOfTestedTransactions;
+        
+        results.setAllTestedItems(allTestedItems);
+        results.setAllTestedTransactions(numOfTestedTransactions);
+        results.setF1GGC(ggF1);
+        results.setF1GO(goF1);
+        results.setF1OG(ogF1);
+        results.setMaxRecommendedItems(maxRecommendedItems);
+        results.setNdcgGGC(ndcgGG);
+        results.setNdcgGO(ndcgGO);
+        results.setNdcgOG(ndcgOG);
+        results.setPrecisionGGC(ggprecision);
+        results.setPrecisionGO(goprecision);
+        results.setPrecisionOG(ogprecision);
+        results.setRealRecommendedGGC(ggSumRealRecommended);
+        results.setRealRecommendedGO(goSumRealRecommended);
+        results.setRealRecommendedOG(ogSumRealRecommended);
+        results.setRecallGGC(ggrecall);
+        results.setRecallGO(gorecall);
+        results.setRecallOG(ogrecall);
+        
         try {
             writer.close();
             writer = null;
@@ -168,6 +290,12 @@ public class PatternsRecommendationEvaluator extends AbstractMOAObject{
             Logger.getLogger(PatternsRecommendationEvaluator.class.getName()).log(Level.SEVERE, null, ex);
         }
         return results;
+    }
+    
+    private double computeF1(double p, double r) {
+        double result = 0;
+        result = 2*(p*r)/(p+r);
+        return result;
     }
     
     @Override
@@ -178,6 +306,8 @@ public class PatternsRecommendationEvaluator extends AbstractMOAObject{
     public void addResult(Example testInst, double[] recommendations, int windowSize, int numberOfRecommendedItems, double transsec) {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
+
+   
 
     
 }

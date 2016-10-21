@@ -156,17 +156,16 @@ public class IncMine2 extends AbstractLearner implements Observer {
         this.sigma = this.minSupportOption;
         this.r = this.relaxationRateOption;
         
+        double sigmaGroup = this.sigma/(double)this.numberOfGroupsOption;
         double min_sup = new BigDecimal(this.r*this.sigma).setScale(8, RoundingMode.DOWN).doubleValue(); //necessary to correct double rounding error
-
+        //double minSupGroup = new BigDecimal(this.r*sigmaGroup).setScale(8, RoundingMode.DOWN).doubleValue(); //necessary to correct double rounding error
         this.swmGlobal = new FixedLengthWindowManager(min_sup, this.maxItemsetLengthOption, this.fixedSegmentLengthOption);
         this.swmGlobal.deleteObservers();
         this.swmGlobal.addObserver(this);
         this.swmGroups = new ArrayList<SlidingWindowManager>();
-        
-        double groupMinSupport = min_sup;
         // prepares sliding window for each group
         for(int i = 0; i < this.numberOfGroupsOption; i++){
-            this.swmGroups.add(i, new FixedLengthWindowManager(groupMinSupport, 
+            this.swmGroups.add(i, new FixedLengthWindowManager(min_sup, 
                     this.maxItemsetLengthOption, this.groupFixedSegmentLengthOption ));
             this.swmGroups.get(i).deleteObservers();
             this.swmGroups.get(i).addObserver(this);        
@@ -539,28 +538,6 @@ public class IncMine2 extends AbstractLearner implements Observer {
         return fciTableGlobal.toString();
     }
     
-    private void clearSlidingWindow() {
-       double min_sup = new BigDecimal(this.r*this.sigma).setScale(8, RoundingMode.DOWN).doubleValue(); //necessary to correct double rounding error
 
-        this.swmGlobal = new FixedLengthWindowManager(min_sup, this.maxItemsetLengthOption, this.fixedSegmentLengthOption);
-        this.swmGlobal.deleteObservers();
-        this.swmGlobal.addObserver(this);
-        this.swmGroups = new ArrayList<SlidingWindowManager>();
-        
-        double groupMinSupport = min_sup;
-        // prepares sliding window for each group
-        for(int i = 0; i < this.numberOfGroupsOption; i++){
-            this.swmGroups.add(i, new FixedLengthWindowManager(groupMinSupport, 
-                    this.maxItemsetLengthOption, this.groupFixedSegmentLengthOption ));
-            this.swmGroups.get(i).deleteObservers();
-            this.swmGroups.get(i).addObserver(this);        
-        }
-        this.fciTableGlobal = new FCITable();
-        this.fciTablesGroups = new ArrayList<FCITable>();
-        //prepares FCI table foreach group
-        for(int i = 0; i < this.numberOfGroupsOption; i++){ 
-            fciTablesGroups.add(i, new FCITable());
-        }
-    }
 
 }

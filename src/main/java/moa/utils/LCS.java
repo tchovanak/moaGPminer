@@ -13,6 +13,8 @@ import java.util.*;
  */
 public class LCS {
     
+     
+    
     
      public static double computeLongestCommonSubset(List<Integer> list1, List<Integer> list2) {
         int M = list1.size();
@@ -27,8 +29,27 @@ public class LCS {
         }
         return lcsVal;
     }
+     
+     
+    public static BitSet computeIntersection(List<Integer> list1, List<Integer> list2) {
+        
+        BitSet results = new BitSet();
+        int i = 0;
+        for (Integer item : list1) {
+            if(list2.contains(item)){
+                results.set(i, true);
+            }else{
+                results.set(i,false);
+            }
+            i++;
+        }
+        return results;
+    }
     
-     public static void computeLongestCommonSubsequence(List<Integer> list1, List<Integer> list2) {
+    
+    
+    
+    public static void computeLongestCommonSubsequence(List<Integer> list1, List<Integer> list2) {
         int M = list1.size();
         int N = list2.size();
 

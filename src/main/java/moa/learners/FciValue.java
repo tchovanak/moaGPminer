@@ -12,7 +12,7 @@ import moa.utils.Configuration;
  *
  * @author Tomas
  */
-class FciValue implements Comparable {
+public class FciValue implements Comparable {
     
     private double lcsVal = 0.0;
     private double support = 0.0;

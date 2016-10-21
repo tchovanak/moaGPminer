@@ -16,6 +16,7 @@ public class Configuration {
     public static double MIN_TRANSSEC = 5;
     public static double SPEED_PARAM = 5;
     public static double MAX_VOTES = 1000;
+    public static int START_EVALUATING_FROM = 1000;
     public static double A = 0.0;
     public static double B = 0.0;
     public static double C = 0.0;
@@ -23,4 +24,5 @@ public class Configuration {
     //public static String RECOMMEND_STRATEGY = "VOTES";
     public static RecommendStrategiesEnum RECOMMEND_STRATEGY = RecommendStrategiesEnum.VOTES;
     public static SortStrategiesEnum SORT_STRATEGY = SortStrategiesEnum.LCSANDSUPPORT;
+    public static int EXTRACT_PATTERNS_AT = 20000;
 }

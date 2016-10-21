@@ -141,6 +141,7 @@ public class GridSearchEvaluator extends MainTask {
                 writer.append("RES:SPEED PARAMETER");writer.append(',');
                 writer.append("RES:MIN TRANSACTIONS PER SECOND");writer.append(',');
                 writer.append("RES:MAX UPDATE TIME");writer.append(',');
+                writer.append("RES:START EVALUATING FROM TID");writer.append(',');
                 // CLUSTERING PARAMETERS
                 writer.append("CLU:MIN NUM OF CHANGES IN USER MODEL");writer.append(',');
                 writer.append("CLU:MIN NUM OF CHANGES IN MICROCLUSTERS");writer.append(',');
@@ -149,15 +150,14 @@ public class GridSearchEvaluator extends MainTask {
                 writer.append("CLU:KERNEL RADI FACTOR");writer.append(',');
                 // RESULTS 
                 writer.append("GGC:ALL HITS");writer.append(',');
-                writer.append("GGC:HITS FROM GROUP");writer.append(',');
                 writer.append("GGC:REAL RECOMMENDED");writer.append(',');
                 writer.append("GGC:PRECISION");writer.append(',');
                 writer.append("GGC:RECALL");writer.append(',');
                 writer.append("GGC:F1");writer.append(',');
                 writer.append("GGC:NDCG");writer.append(',');
                 
-                writer.append("GO: ALL HITS");writer.append(',');
-                writer.append("GG: REAL RECOMMENDED ITEMS");writer.append(',');
+                writer.append("GO:ALL HITS");writer.append(',');
+                writer.append("GO:REAL RECOMMENDED ITEMS");writer.append(',');
                 writer.append("GO:PRECISION");writer.append(',');
                 writer.append("GO:RECALL");writer.append(',');
                 writer.append("GO:F1");writer.append(',');
@@ -170,6 +170,8 @@ public class GridSearchEvaluator extends MainTask {
                 writer.append("OG:F1");writer.append(',');
                 writer.append("OG:NDCG");writer.append(',');
                 
+                writer.append("ALL TESTED ITEMS");writer.append(',');
+                writer.append("ALL TESTED TRANSACTIONS");writer.append(',');
                 writer.append("MAX RECOMMENDED ITEMS");writer.append(',');
                 writer.append("DURATION IN SECONDS");writer.append(',');
                 writer.append("TRANSACTIONS PER SECOND");writer.append(',');
