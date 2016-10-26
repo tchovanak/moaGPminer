@@ -25,6 +25,8 @@ import java.util.List;
 import java.util.Random;
 import com.yahoo.labs.samoa.instances.DenseInstance;
 import com.yahoo.labs.samoa.instances.Instance;
+import org.apache.commons.math3.stat.correlation.PearsonsCorrelation;
+
 
 /**
  * A simple implementation of the <code>Cluster</code> interface representing
@@ -245,15 +247,29 @@ public class SphereCluster extends Cluster {
 	}
 
 	public double getCenterDistance(Instance instance) {
-		double distance = 0.0;
-		//get the center through getCenter so subclass have a chance
-		double[] center = getCenter();
-		for (int i = 0; i < center.length; i++) {
-			double d = center[i] - instance.value(i);
-			distance += d * d;
-		}
-		return Math.sqrt(distance);
+//		double distance = 0.0;
+//		//get the center through getCenter so subclass have a chance
+//		double[] center = getCenter();
+//		for (int i = 0; i < center.length; i++) {
+//                        double c = center[i];
+//			double d = c - instance.value(i);
+//			distance += d * d;
+//		}
+//		return Math.sqrt(distance);
+            return getCenterDistancePearson(instance);
 	}
+        
+        public double getCenterDistancePearson(Instance instance){
+            PearsonsCorrelation pcor = new PearsonsCorrelation();
+            double[] center = getCenter();
+            double[] items = instance.toDoubleArray();
+            double correlation = pcor.correlation(center, items);
+            if(correlation > 0){
+                return 1 - correlation;
+            }else{
+                return correlation + 1;
+            }
+        }
 
 	public double getCenterDistance(SphereCluster other) {
 		return distance(getCenter(), other.getCenter());
@@ -292,7 +308,6 @@ public class SphereCluster extends Cluster {
 		//comes down to Max(radius *(sin alpha + cos alpha)) which is
 		double minDist = Math.sqrt(2)*(getRadius() + other.getRadius());
 		double diff = getCenterDistance(other) - minDist;
-
 		if(diff > 0)
 			return true;
 		else
@@ -300,13 +315,20 @@ public class SphereCluster extends Cluster {
 	}
 
 	private double distance(double[] v1, double[] v2){
-		double distance = 0.0;
-		double[] center = getCenter();
-		for (int i = 0; i < center.length; i++) {
-			double d = v1[i] - v2[i];
-			distance += d * d;
-		}
-		return Math.sqrt(distance);
+//		double distance = 0.0;
+//		double[] center = getCenter();
+//		for (int i = 0; i < center.length; i++) {
+//			double d = v1[i] - v2[i];
+//			distance += d * d;
+//		}
+//		return Math.sqrt(distance);
+            PearsonsCorrelation pcor = new PearsonsCorrelation();
+            double correlation = pcor.correlation(v1, v2);
+            if(correlation > 0){
+                return 1-correlation;
+            }else{
+                return correlation + 1;
+            }
 	}
 
 	public double[] getDistanceVector(Instance instance){

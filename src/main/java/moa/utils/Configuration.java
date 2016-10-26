@@ -25,4 +25,6 @@ public class Configuration {
     public static RecommendStrategiesEnum RECOMMEND_STRATEGY = RecommendStrategiesEnum.VOTES;
     public static SortStrategiesEnum SORT_STRATEGY = SortStrategiesEnum.LCSANDSUPPORT;
     public static int EXTRACT_PATTERNS_AT = 20000;
+    public static int MAX_USER_SESSIONS_HISTORY_IN_USER_MODEL = 5;
+    public static int MAX_DIFFERENCE_OF_CLUSTERING_ID = 5;
 }

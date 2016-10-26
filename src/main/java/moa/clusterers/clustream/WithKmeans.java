@@ -41,6 +41,7 @@ import moa.core.Measurement;
 import com.github.javacliparser.IntOption;
 import com.yahoo.labs.samoa.instances.DenseInstance;
 import com.yahoo.labs.samoa.instances.Instance;
+import org.apache.commons.math3.stat.correlation.PearsonsCorrelation;
 
 public class WithKmeans extends AbstractClusterer {
 	
@@ -215,12 +216,19 @@ public class WithKmeans extends AbstractClusterer {
 	 * @return dist
 	 */
 	private static double distance(double[] pointA, double [] pointB) {
-		double distance = 0.0;
-		for (int i = 0; i < pointA.length; i++) {
-			double d = pointA[i] - pointB[i];
-			distance += d * d;
-		}
-		return Math.sqrt(distance);
+//		double distance = 0.0;
+//		for (int i = 0; i < pointA.length; i++) {
+//			double d = pointA[i] - pointB[i];
+//			distance += d * d;
+//		}
+//		return Math.sqrt(distance);
+                PearsonsCorrelation pcor = new PearsonsCorrelation();
+                double correlation = pcor.correlation(pointA, pointB);
+                if(correlation > 0){
+                    return 1-correlation;
+                }else{
+                    return correlation + 1;
+                }
 	}
 
 	/**

@@ -30,10 +30,9 @@ import moa.utils.MapUtil;
 public class PatternsMine3 extends AbstractLearner implements Observer {
 
     private static final long serialVersionUID = 1L;
-    
     private IncMine2 incMine;
     private WithKmeans clusterer = new WithKmeans();
-    private Map<Integer,UserModel> usermodels = new ConcurrentHashMap<Integer, UserModel>();
+    private Map<Integer,UserModel> usermodels = new ConcurrentHashMap<>();
     private int microclusteringUpdatesCounter = 0;
     
     public IntOption numMinNumberOfChangesInUserModel = new IntOption("minNumOfChangesInUserModel", 'c',
@@ -100,15 +99,13 @@ public class PatternsMine3 extends AbstractLearner implements Observer {
             "useGroupingFlag", 'f',
             "If flag is set grouping is used.");
     
-  
-    
-    
     private int cntAll = 0;
     private List<Integer> recsOnlyFromGlobal = new ArrayList<>();
     private List<Integer> recsOnlyFromGroup = new ArrayList<>();
     private List<Integer> recsCombined = new ArrayList<>();
     
     private Clustering kmeansClustering;
+    private int clusteringId = 0;
     private int cntOnlyGroup;
     private int cntOnlyGlobal;
      
@@ -146,7 +143,7 @@ public class PatternsMine3 extends AbstractLearner implements Observer {
         this.clusterer.kernelRadiFactorOption.setValue(2);
         this.clusterer.resetLearning();
         usermodels.clear();
-        usermodels = new ConcurrentHashMap<Integer, UserModel>();
+        usermodels = new ConcurrentHashMap<>();
         System.gc(); // force garbage collection
     }
     
@@ -156,14 +153,14 @@ public class PatternsMine3 extends AbstractLearner implements Observer {
         Instance inst = (Instance) e.getData();
         if(useGroupingOption.isSet()){
             UserModel um = updateUserModel(inst.copy());
-            if(um.getNumberOfChanges() > this.numMinNumberOfChangesInUserModel.getValue()){
-                um.setNumberOfChanges(0);
-                // perform clustering with user model 
-                Instance umInstance = um.toInstance(maxNumPages.getValue());
+            if(um.getNumOfNewSessions() > this.numMinNumberOfChangesInUserModel.getValue()){
+                Instance umInstance = um.getNewInstance(this.maxNumPages.getValue());
                 clusterer.trainOnInstance(umInstance);
-                if(this.microclusteringUpdatesCounter++ > this.numMinNumberOfMicroclustersUpdates.getValue()){
+                this.microclusteringUpdatesCounter++;
+                if(this.microclusteringUpdatesCounter > this.numMinNumberOfMicroclustersUpdates.getValue()){
+                    // perform macroclustering
                     this.microclusteringUpdatesCounter = 0;
-                    Clustering results = clusterer.getMicroClusteringResult(); // append group to instance that it belongs to...
+                    Clustering results = clusterer.getMicroClusteringResult();
                     if(results != null){
                         AutoExpandVector<Cluster> clusters = results.getClustering();
                         if(clusters.size() > 0){
@@ -171,12 +168,13 @@ public class PatternsMine3 extends AbstractLearner implements Observer {
                             this.kmeansClustering = Clustream.kMeans(
                                     this.numberOfGroupsOption.getValue(),
                                     clusters);
-                            updateGroupidsInUserModels();
+                            this.clusteringId++;
+                            this.clearUserModels();
                         }
                     }
                 }
-                
             }
+            updateGroupingInUserModel(um);
             double groupid = um.getGroupid(); // now update instance with groupid from user model
             if(groupid > -1){   
                 int nItems = inst.numValues();
@@ -191,10 +189,39 @@ public class PatternsMine3 extends AbstractLearner implements Observer {
                 Instance instanceWithGroupid = new SparseInstance(1.0,attValues,indices,nItems);
                 InstanceExample instEx = new InstanceExample(instanceWithGroupid);
                 incMine.trainOnInstance(instEx.copy()); // first train on instance with groupid - group
-
             }
         }
         incMine.trainOnInstance(e.copy());   // then train on instance without groupid - global
+    }
+    
+    
+    private void updateGroupingInUserModel(UserModel um) {
+        if(this.clusteringId > um.getClusteringId()){
+            // in um there is not set group for actual clustering so we need to set it now
+            Instance umInstance = um.getInstance();   
+            if(umInstance == null){
+                return;
+            }
+            List<Cluster> clusters = null;
+            if(kmeansClustering != null){  // if already clustering was performed
+                clusters = this.kmeansClustering.getClustering();
+            }
+            Cluster bestCluster = null;
+            double minDist = 1.0;
+            for(Cluster c : clusters){
+                SphereCluster cs = (SphereCluster) c; // kmeans produce sphere clusters
+                //double dist = cs.getCenterDistance(umInstance)/cs.getRadius();
+                double dist = cs.getCenterDistancePearson(umInstance);
+                if(dist <= 1.0 && dist < minDist){
+                    bestCluster = cs;
+                    minDist = dist;
+                    um.setGroupid(bestCluster.getId());
+                    um.setDistance(dist);
+                }
+                    
+            }
+            um.setClusteringId(this.clusteringId);
+        }
     }
 
     
@@ -228,7 +255,6 @@ public class PatternsMine3 extends AbstractLearner implements Observer {
         for(int i = evaluationWindowSize + 2, j = 0; i < sessionArray.size(); i++){
             outOfWindow.add((int) Math.round(sessionArray.get(i)));
         }
-       
         //to get all fcis found 
         Iterator<SemiFCI> it = this.incMine.fciTableGlobal.iterator();
         
@@ -265,11 +291,13 @@ public class PatternsMine3 extends AbstractLearner implements Observer {
             // if already clustering was performed
             Double groupid = -1.0;
             UserModel um = getUserModelFromInstance(session);
+            double distance = 0;
             if(um != null){
+                distance = um.getDistance();
                 groupid = um.getGroupid(); // groupids sorted by preference
             }else{
                 sessionArray.set(0,-1.0);
-            }
+            }            
             //         This next block performs the same with group fcis. 
             //         This can be commented out to test performance without group fcis.
 //            int preference = 0;
@@ -295,10 +323,9 @@ public class PatternsMine3 extends AbstractLearner implements Observer {
 //                        }
                         FciValue fciVal = new FciValue();
                         fciVal.setGroupFciFlag(true);
-                       
                             ///fciVal.setPreference(preference);
                         fciVal.setFci( fci);
-                      
+                        fciVal.setDistance(distance);
                         fciVal.computeValue(hitsVal, support, 0, minSupportOption.getValue());
                         mapFciWeight.add(fciVal);
                         mapFciWeightGroup.add(fciVal);
@@ -326,26 +353,7 @@ public class PatternsMine3 extends AbstractLearner implements Observer {
                 generateRecsFirstWinsStrategy(mapFciWeight, mapFciWeightGlobal,
                         mapFciWeightGroup, window);
                 break;
-        }
-        
-        
-//        double lcsValFromGlobal = LCS.computeLongestCommonSubset(outOfWindow, recsGlobal);
-//        double lcsValFromGroup = LCS.computeLongestCommonSubset(outOfWindow, recsGroup);
-//        double lcsValCombined = LCS.computeLongestCommonSubset(outOfWindow, recsCombined);
-//        double lcsValOnlyFromGlobal = LCS.computeLongestCommonSubset(outOfWindow, recsOnlyFromGlobal);
-//        double lcsValOnlyFromGroup = LCS.computeLongestCommonSubset(outOfWindow, recsOnlyFromGroup);
-//        // lcsVal contains number of items that are same in outOfWindow and recs
-//        double[] lcsValues = new double[8];
-//        lcsValues[0] = lcsValFromGlobal; // in future the window will slide over actual session. 
-//        lcsValues[1] = lcsValFromGroup;
-//        lcsValues[2] = lcsValCombined;
-//        lcsValues[3] = cntAll;   // Now only one set of recommended items is created
-//        lcsValues[4] = lcsValOnlyFromGlobal; // in future the window will slide over actual session. 
-//        lcsValues[5] = cntOnlyGlobal; // in future the window will slide over actual session.         lcsValues[1] = lcsValFromGroup; 
-//        lcsValues[6] = lcsValOnlyFromGroup; 
-//        lcsValues[7] = cntOnlyGroup;
-//        return lcsValues;
-        
+        }        
           RecommendationResults results = new RecommendationResults();
           results.setTestWindow(outOfWindow);
           results.setNumOfRecommendedItems(this.numberOfRecommendedItemsOption.getValue());
@@ -399,39 +407,6 @@ public class PatternsMine3 extends AbstractLearner implements Observer {
         return support;
     }
     
-    public void updateGroupidsInUserModels() {
-        List<Cluster> clusters = null;
-        if(kmeansClustering != null){  // if already clustering was performed
-            clusters = this.kmeansClustering.getClustering();
-        }
-        Iterator it = this.usermodels.entrySet().iterator();
-        while(it.hasNext()) {
-            
-            Map.Entry pair = (Map.Entry)it.next();
-            UserModel um =  (UserModel) pair.getValue();
-            um.clearGroupids();
-            Instance inst = um.toInstance(maxNumPages.getValue()); 
-            Cluster bestCluster = null;
-            double minDist = 1.0;
-            for(Cluster c : clusters){
-                SphereCluster cs = (SphereCluster) c; // kmeans produce sphere clusters
-                double prob = cs.getInclusionProbability(inst);
-                double dist = cs.getCenterDistance(inst)/cs.getRadius();
-                //um.addGroup(cs.getId(), dist);
-                if(prob == 1.0 && dist < minDist){
-                    bestCluster = cs;
-                    minDist = dist;
-                    um.setGroupid(bestCluster.getId());
-                    um.setDistance(dist);
-                }
-            }
-            um.aging();
-            if(um.getPageVisitsMap().size() < 2){
-                usermodels.remove((Integer) pair.getKey());
-            }
-        }
-    }
-    
     @Override
     public void trainOnInstanceImpl(Instance inst) {
         System.out.println("trainOnInstanceImpl");
@@ -476,52 +451,20 @@ public class PatternsMine3 extends AbstractLearner implements Observer {
     }
     
     private UserModel updateUserModel(Instance inst){
-        if(useGroupingOption.isSet()){
-            int uid = (int)inst.value(1);
-            if(usermodels.containsKey(uid)){
-                UserModel um = usermodels.get(uid);
-                Map<Integer,Double> pageVisitsMap = um.getPageVisitsMap();
-                for(int i = 2; i < inst.numValues(); i++){ // from i = 2 because first val is groupid and second uid
-                    int idx = (int)inst.value(i);
-                    if(pageVisitsMap.containsKey(idx)){
-                        double actVal = pageVisitsMap.get(idx);
-                        um.put(idx,actVal + 1);
-                    }else{
-                        um.put(idx, 1);
-                    }
-                }
-                return um;
-            }else{
-                UserModel um = new UserModel();
-                um.setGroupid(inst.value(0));
-                um.setId((int)inst.value(1));
-                Map<Integer,Double> pageVisitsMap = um.getPageVisitsMap();
-                for(int i = 2; i < inst.numValues(); i++){ // from i = 2 because first val is groupid and second uid
-                    int idx = (int)inst.value(i);
-                    if(pageVisitsMap.containsKey(idx)){
-                        double actVal = pageVisitsMap.get(idx);
-                        um.put(idx,actVal + 1.0);
-                    }else{
-                        um.put(idx, 1.0);
-                    }
-                }
-                usermodels.put(uid, um);
-                return um;
-            }
+        int uid = (int)inst.value(1);
+        if(usermodels.containsKey(uid)){
+            UserModel um = usermodels.get(uid);
+            um.updateWithInstance(inst);
+            return um;
+        }else{
+            UserModel um = new UserModel((int)inst.value(1), this.numMinNumberOfChangesInUserModel.getValue());
+            um.updateWithInstance(inst);
+            um.setGroupid(inst.value(0));
+            usermodels.put(uid, um);
+            return um;
         }
-        return null;
     }
     
-//    private Instance getUserModelInstanceFromExampleInstance(Instance inst){
-//        int uid = (int)inst.value(1);
-//        if(usermodels.containsKey(uid)){
-//            UserModel um = usermodels.get(uid);
-//            return um.toInstance(numPages.getValue());
-//        }else{
-//            return null;
-//        }
-//    }
-
     private UserModel getUserModelFromInstance(Instance inst) {
         int uid = (int)inst.value(1);
          if(usermodels.containsKey(uid)){
@@ -532,20 +475,6 @@ public class PatternsMine3 extends AbstractLearner implements Observer {
         }
     }
     
-    /*
-        Increases relaxation rate in case data mining is too slow
-    */
-    public boolean increaseRelaxationRate(double d) {
-        double newValue = this.relaxationRateOption.getValue() + d;
-        if(newValue > 1.0){
-            return false;
-        }
-        this.relaxationRateOption.setValue(newValue);
-        this.incMine.setRelaxationRate(d);
-        return true;
-        
-    }
-
     private double computeSimilarity(List<Integer> items, List<Integer> window) {
         double hitsVal = 0.0;
         switch (Configuration.INTERSECT_STRATEGY) {
@@ -579,8 +508,8 @@ public class PatternsMine3 extends AbstractLearner implements Observer {
                int all = fci.getFci().size();
                while(itFciItems.hasNext()){
                    distance = distance - (distance/all);
-                   Integer item = itFciItems.next();
-                   if(mapItemsVotes.containsKey(item)){
+                   Integer item = itFciItems.next();         
+                   if(mapItemsVotes.containsKey(item)){   
                        Double newVal = mapItemsVotes.get(item) + fci.getLcsVal()*fci.getSupport();
                        mapItemsVotes.put(item, newVal);
                    }else{
@@ -605,21 +534,30 @@ public class PatternsMine3 extends AbstractLearner implements Observer {
                Iterator<Integer> itFciItems = fci.getFci().getItems().iterator();
                while(itFciItems.hasNext()){
                    Integer item = itFciItems.next();
+                    double dist = fci.getDistance();
+                    if(dist == 0.0){
+                        dist = 1.0;
+                    }else{
+                        if(dist < 0){
+                            dist = -dist;
+                        }
+                        dist = 1.0-dist;
+                    }
                    if(mapItemsVotes.containsKey(item)){
-                       Double newVal = mapItemsVotes.get(item) + fci.getLcsVal()*fci.getSupport();
+                       Double newVal = mapItemsVotes.get(item) + fci.getLcsVal()*fci.getSupport()*(dist);
                        mapItemsVotes.put(item, newVal);
                    }else{
                        if(!window.contains(item)){
-                           Double newVal =  fci.getLcsVal()*fci.getSupport();
+                           Double newVal =  fci.getLcsVal()*fci.getSupport()*(dist);
                            mapItemsVotes.put(item, newVal);
                        }
                    }  
                    if(mapItemsVotesOnlyGroup.containsKey(item)){
-                       Double newVal = mapItemsVotesOnlyGroup.get(item) + fci.getLcsVal()*fci.getSupport();
+                       Double newVal = mapItemsVotesOnlyGroup.get(item) + fci.getLcsVal()*fci.getSupport()*dist;
                        mapItemsVotesOnlyGroup.put(item, newVal);
                    }else{
                        if(!window.contains(item)){
-                           Double newVal =  fci.getLcsVal()*fci.getSupport();
+                           Double newVal =  fci.getLcsVal()*fci.getSupport()*dist;
                            mapItemsVotesOnlyGroup.put(item, newVal);
                        }
                    }   
@@ -629,9 +567,9 @@ public class PatternsMine3 extends AbstractLearner implements Observer {
         mapItemsVotes = MapUtil.sortByValue(mapItemsVotes);
         mapItemsVotesOnlyGlobal = MapUtil.sortByValue(mapItemsVotesOnlyGlobal);
         mapItemsVotesOnlyGroup = MapUtil.sortByValue(mapItemsVotesOnlyGroup);
-        recsCombined = new ArrayList<Integer>();
-        recsOnlyFromGlobal = new ArrayList<Integer>();
-        recsOnlyFromGroup = new ArrayList<Integer>();
+        recsCombined = new ArrayList<>();
+        recsOnlyFromGlobal = new ArrayList<>();
+        recsOnlyFromGroup = new ArrayList<>();
         int numRecommendedItems = this.numberOfRecommendedItemsOption.getValue();
         cntAll = 0;
         cntOnlyGlobal = 0;
@@ -735,14 +673,24 @@ public class PatternsMine3 extends AbstractLearner implements Observer {
         }
     }
 
-    public void clear() {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    /**
+     * Removes old user models - if it has clustering id older than minimal user model updates
+     */
+    public void clearUserModels() {
+        for(Map.Entry<Integer, UserModel> entry : this.usermodels.entrySet()){
+            UserModel model = entry.getValue();
+            if(this.clusteringId - model.getClusteringId() > Configuration.MAX_DIFFERENCE_OF_CLUSTERING_ID){
+                // delete 
+                this.usermodels.remove(entry.getKey());
+            }
+        }
     }
 
     @Override
     public double[] getVotesForInstance(Example e) {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
+
    
 
 }

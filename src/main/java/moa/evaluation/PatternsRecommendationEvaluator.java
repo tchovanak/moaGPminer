@@ -284,8 +284,10 @@ public class PatternsRecommendationEvaluator extends AbstractMOAObject{
         results.setRecallOG(ogrecall);
         
         try {
-            writer.close();
+            if(writer != null)
+                writer.close();
             writer = null;
+            
         } catch (IOException ex) {
             Logger.getLogger(PatternsRecommendationEvaluator.class.getName()).log(Level.SEVERE, null, ex);
         }

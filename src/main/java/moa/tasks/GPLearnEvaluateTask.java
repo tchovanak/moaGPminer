@@ -71,11 +71,7 @@ public class GPLearnEvaluateTask implements Task {
 
     @Override
     public Object doTask() {
-        // fromid is used to allow user restart evaluation from different point 
         id++; // id is always incremented
-        if(fromid >= id){
-            return null;
-        }
         findChangeInParams(params);
         /*
             if there was raised flag in previous evaluation that parameter configuration
@@ -112,12 +108,26 @@ public class GPLearnEvaluateTask implements Task {
         // initialize and configure learner
         PatternsMine3 learner = new PatternsMine3();
         for(int i = 0; i < 2; i++){
-            this.grouping = true;
             configureLearnerWithParams(learner, params);
             double originalUPDATETIME = 
                     (learner.fixedSegmentLengthOption.getValue() 
                     * (learner.minSupportOption.getValue()) * 100 ) / Configuration.SPEED_PARAM;
             Configuration.MAX_UPDATE_TIME = originalUPDATETIME;
+            updateLastParams(learner);
+            // fromid is used to allow user restart evaluation from different point anytime
+            if(i == 1 && fromid >= id){
+                return null;
+            }
+            // fromid is used to allow user restart evaluation from different point anytime
+            if(i == 0 && fromid >= id && !repeatWithGrouping){
+                return null;
+            }
+            if(i == 0 && fromid >= id && repeatWithGrouping){
+                id++;
+                grouping = true;
+                continue;
+            }
+            
             this.stream = new SessionsFileStream(this.pathToStream);
             writeConfigurationToFile(this.pathToSummaryOutputFile, learner);
             learner.useGroupingOption.setValue(grouping); // change grouping option in learner
@@ -132,7 +142,7 @@ public class GPLearnEvaluateTask implements Task {
             long start = TimingUtils.getNanoCPUTimeOfCurrentThread();
             double transsec = 0.0;
             int windowSize = learner.evaluationWindowSizeOption.getValue();
-            updateLastParams(learner);
+            
             while (stream.hasMoreInstances()) {
                 counter++;
                 if(counter == Configuration.EXTRACT_PATTERNS_AT){
@@ -186,9 +196,6 @@ public class GPLearnEvaluateTask implements Task {
             transsec = counter/tp;
             SummaryResults results = evaluator.getResults();
             writeResultsToFile(results, transsec, tp, counter);
-            
-            
-            
             if(!repeatWithGrouping){
                 break;
             }else if(i == 0){

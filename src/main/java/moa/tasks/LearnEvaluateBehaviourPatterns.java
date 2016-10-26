@@ -26,7 +26,7 @@ import moa.core.ObjectRepository;
 import moa.evaluation.PatternsRecommendationEvaluator;
 import moa.options.ClassOption;
 import moa.streams.InstanceStream;
-import moa.learners.PatternsMine;
+import moa.learners.PatternsMine3;
 import moa.core.Example;
 
 
@@ -51,7 +51,7 @@ public class LearnEvaluateBehaviourPatterns extends MainTask {
     @Override
     protected Object doMainTask(TaskMonitor tm, ObjectRepository or) {
       
-        PatternsMine learner = new PatternsMine();
+        PatternsMine3 learner = new PatternsMine3();
         learner.resetLearning();
 	InstanceStream stream = (InstanceStream) getPreparedClassOption(this.streamOption);
 	PatternsRecommendationEvaluator evaluator = 

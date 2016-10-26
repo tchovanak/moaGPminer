@@ -22,6 +22,7 @@ public class FciValue implements Comparable {
     private int preference = 0;
     private SemiFCI fci = null;
     private double minSupport = 0.01;
+    private double distance = 0.0;
 
     
     
@@ -168,7 +169,15 @@ public class FciValue implements Comparable {
     void computeValue(double lcsVal, double support) {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
+
+    void setDistance(double distance) {
+       this.distance = distance;
+    }
     
+    public double getDistance(){
+        
+        return this.distance;
+    }
 
     
     
