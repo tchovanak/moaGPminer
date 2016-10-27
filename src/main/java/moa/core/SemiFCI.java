@@ -19,13 +19,14 @@
  */
 package moa.core;
 
+import moa.utils.PPSDM.UtilitiesPPSDM;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import moa.learners.IncMine2;
+import moa.learners.PersonalizedIncMine;
 /*
     (Tomas Chovanak) No change
 */
@@ -52,7 +53,7 @@ public class SemiFCI implements Comparable<SemiFCI>,Serializable {
         Collections.sort(items);
         
         this.id = new SemiFCIid(items.size(), -1);
-        this.supports = new int[IncMine2.windowSize];
+        this.supports = new int[PersonalizedIncMine.windowSize];
         this.updated = true; //changed! newly added semiFCI are updated!!
 
         //append the current support at the beginning of the support vector
@@ -128,7 +129,7 @@ public class SemiFCI implements Comparable<SemiFCI>,Serializable {
      * @return ordered set of common items
      */
     public List<Integer> intersectWith(SemiFCI o) {
-        return Utilities.intersect2orderedList(this.getItems(), o.getItems());
+        return UtilitiesPPSDM.intersect2orderedList(this.getItems(), o.getItems());
     }
 
     /**
@@ -251,7 +252,7 @@ public class SemiFCI implements Comparable<SemiFCI>,Serializable {
     * @return sum of the supports
     */
     public int getApproximateSupport(){
-        return Utilities.cumSum(supports.clone(), supports.length-1);
+        return UtilitiesPPSDM.cumSum(supports.clone(), supports.length-1);
     }
     
     /**
@@ -262,7 +263,7 @@ public class SemiFCI implements Comparable<SemiFCI>,Serializable {
      * @return sum of the supports
      */
     public int getApproximateSupport(int k) {
-        return Utilities.cumSum(supports.clone(), k);
+        return UtilitiesPPSDM.cumSum(supports.clone(), k);
     }
     
     @Override

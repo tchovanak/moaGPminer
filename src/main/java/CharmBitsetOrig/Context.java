@@ -38,8 +38,8 @@ public class Context implements Serializable{
 	 */
 	private static final long serialVersionUID = 2881137224215367135L;
 	// Contexte
-	private final Set<Integer> attributes = new HashSet<Integer>();
-	private final List<Itemset> objects = new ArrayList<Itemset>();
+	private final Set<Integer> attributes = new HashSet<>();
+	private final List<Itemset> objects = new ArrayList<>();
 
 	int tidcount = 0;
         private int maxItemId = 0;

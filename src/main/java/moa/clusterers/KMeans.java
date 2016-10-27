@@ -25,7 +25,7 @@ import java.util.List;
 import moa.cluster.CFCluster;
 import moa.cluster.Cluster;
 import moa.cluster.Clustering;
-import moa.cluster.SphereCluster;
+import moa.cluster.PPSDM.SphereClusterPPSDM;
 
 /**
  * A kMeans implementation for microclusterings. For now it only uses the real centers of the 
@@ -79,7 +79,7 @@ public class KMeans {
 	    }
 
 	    // Calculate new centers and clear clustering lists
-	    SphereCluster[] newCenters = new SphereCluster[centers.length];
+	    SphereClusterPPSDM[] newCenters = new SphereClusterPPSDM[centers.length];
 	    for ( int i = 0; i < k; i++ ) {
 		newCenters[i] = calculateCenter( clustering.get( i ), dimensions );
 		clustering.get( i ).clear();
@@ -100,14 +100,14 @@ public class KMeans {
     }
 
 
-    private static SphereCluster calculateCenter( ArrayList<Cluster> cluster, int dimensions ) {
+    private static SphereClusterPPSDM calculateCenter( ArrayList<Cluster> cluster, int dimensions ) {
 	double[] res = new double[dimensions];
 	for ( int i = 0; i < res.length; i++ ) {
 	    res[i] = 0.0;
 	}
 
 	if ( cluster.size() == 0 ) {
-	    return new SphereCluster( res, 0.0 );
+	    return new SphereClusterPPSDM( res, 0.0 );
 	}
 
 	for ( Cluster point : cluster ) {
@@ -131,7 +131,7 @@ public class KMeans {
 	    }
 	}
 
-	return new SphereCluster( res, radius );
+	return new SphereClusterPPSDM( res, radius );
     }
 
     public static Clustering gaussianMeans(Clustering gtClustering, Clustering clustering) {

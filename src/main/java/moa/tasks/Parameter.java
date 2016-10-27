@@ -38,9 +38,5 @@ class Parameter {
         Parameter clone = new Parameter(this.value, this.boundaries[0], this.boundaries[1], this.boundaries[2]);
         return clone;
     }
-
-   
-    
-   
     
 }

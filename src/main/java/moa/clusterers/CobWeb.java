@@ -23,7 +23,7 @@ import java.io.Serializable;
 
 
 import moa.cluster.Clustering;
-import moa.cluster.SphereCluster;
+import moa.cluster.PPSDM.SphereClusterPPSDM;
 import moa.core.Measurement;
 import moa.core.StringUtils;
 import com.github.javacliparser.FloatOption;
@@ -709,13 +709,13 @@ public class CobWeb extends AbstractClusterer {
                 }
                 text.append("leaf " + m_clusterNum + " ["
                         + m_clusterInstances.numInstances() + "]");
-		clustering.add(SphereCluster(this.coordinates, .05, m_clusterInstances.numInstances()));*/
+		clustering.add(SphereClusterPPSDM(this.coordinates, .05, m_clusterInstances.numInstances()));*/
 	            if (depth == 0) {
 	    		    double [] centroidCoordinates = new double[m_clusterInstances.numAttributes()];
 			    for (int j = 0; j < m_clusterInstances.numAttributes()-1; j++) {						
 				centroidCoordinates[j] = m_clusterInstances.meanOrMode(j);	
 			    }
-			    clustering.add(new SphereCluster(centroidCoordinates, .05, m_clusterInstances.numInstances()));
+			    clustering.add(new SphereClusterPPSDM(centroidCoordinates, .05, m_clusterInstances.numInstances()));
 	            }
             } else {
                 for (int i = 0; i < m_children.size(); i++) {
@@ -730,7 +730,7 @@ public class CobWeb extends AbstractClusterer {
 		    for (int j = 0; j < m_clusterInstances.numAttributes()-1; j++) {						
 			centroidCoordinates[j] = m_clusterInstances.meanOrMode(j);	
 		    }
-		    clustering.add(new SphereCluster(centroidCoordinates, .05, m_clusterInstances.numInstances()));
+		    clustering.add(new SphereClusterPPSDM(centroidCoordinates, .05, m_clusterInstances.numInstances()));
                     ((CNode) m_children.elementAt(i)).computeTreeClustering(depth + 1, clustering);
                 }
             }

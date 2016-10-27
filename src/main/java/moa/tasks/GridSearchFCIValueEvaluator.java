@@ -5,6 +5,7 @@
  */
 package moa.tasks;
 
+import moa.core.PPSDM.Configuration;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -13,10 +14,9 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import moa.core.Example;
 import moa.core.TimingUtils;
-import moa.evaluation.PatternsRecommendationEvaluator;
-import moa.learners.PatternsMine3;
+import moa.evaluation.PPSDMRecommendationEvaluator;
+import moa.learners.PersonalizedPatternsMiner;
 import moa.streams.SessionsFileStream;
-import moa.utils.Configuration;
 
 /**
  * 
@@ -34,7 +34,7 @@ public class GridSearchFCIValueEvaluator  {
         // fromid is used to allow user restart evaluation from different point 
         id++; // id is always incremented
         // initialize and configure learner
-        PatternsMine3 learner = new PatternsMine3(true);
+        PersonalizedPatternsMiner learner = new PersonalizedPatternsMiner(true);
         configureLearnerWithParams(learner);
         this.stream = new SessionsFileStream("g:\\workspace_DP2\\Preprocessing\\alef\\alef_sessions_aggregated.csv");
         writeConfigurationToFile("g:\\workspace_DP2\\results_grid\\alef\\", learner);
@@ -42,8 +42,8 @@ public class GridSearchFCIValueEvaluator  {
         learner.resetLearning();
         stream.prepareForUse();
         TimingUtils.enablePreciseTiming();
-        PatternsRecommendationEvaluator evaluator = 
-                new PatternsRecommendationEvaluator(
+        PPSDMRecommendationEvaluator evaluator = 
+                new PPSDMRecommendationEvaluator(
                          "g:\\workspace_DP2\\results_grid\\alef\\" + "results_fcivalue" + 
                                 "_id_" + id + ".csv");
         int counter = 0;
@@ -83,7 +83,7 @@ public class GridSearchFCIValueEvaluator  {
     }
     
     
-    private void writeConfigurationToFile(String path, PatternsMine3 learner){
+    private void writeConfigurationToFile(String path, PersonalizedPatternsMiner learner){
         try {
             this.writer = new FileWriter("g:\\workspace_DP2\\results_grid\\alef\\summary_results_fci_value.csv", true);
             writer.append(((Integer)id).toString());writer.append(',');
@@ -116,7 +116,7 @@ public class GridSearchFCIValueEvaluator  {
          }
     }
     
-    private void configureLearnerWithParams(PatternsMine3 learner){
+    private void configureLearnerWithParams(PersonalizedPatternsMiner learner){
         learner.minSupportOption.setValue(0.05);
         learner.relaxationRateOption.setValue(0.5);
         learner.fixedSegmentLengthOption.setValue(50);

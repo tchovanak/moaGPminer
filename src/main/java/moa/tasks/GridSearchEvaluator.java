@@ -21,7 +21,7 @@ import moa.core.ObjectRepository;
 import com.github.javacliparser.StringOption;
 
 /**
- * 
+ * Runs and evaluates all experiments from  configurations defined in config file
  * @author Tomas Chovanak
  */
 public class GridSearchEvaluator extends MainTask {
@@ -37,14 +37,14 @@ public class GridSearchEvaluator extends MainTask {
     private double[] lastparams = new double[20];  
     private String pathToSummaryOutputFile = null;
     private String pathToOutputFile = null;
-    private GPLearnEvaluateTask gpLearnEvaluateTask = null;
+    private GridSearchLearnEvaluatePPSDMTask gpLearnEvaluateTask = null;
     
     public GridSearchEvaluator(int fromid) {
         this.fromid = fromid;
     }
     
     public void evaluate(List<Parameter> params){
-        gpLearnEvaluateTask = new GPLearnEvaluateTask(id, fromid, params,
+        gpLearnEvaluateTask = new GridSearchLearnEvaluatePPSDMTask(id, fromid, params,
                 lastparams, pathToStream, pathToSummaryOutputFile, pathToOutputFile,
                 grouping, faster, fasterWithoutGrouping); 
         gpLearnEvaluateTask.doTask(); 

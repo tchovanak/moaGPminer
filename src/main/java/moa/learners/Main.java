@@ -3,7 +3,7 @@ package moa.learners;
 
 import moa.core.Example;
 import moa.core.TimingUtils;
-import moa.evaluation.PatternsRecommendationEvaluator;
+import moa.evaluation.PPSDMRecommendationEvaluator;
 import moa.streams.InstanceStream;
 import moa.streams.SessionsFileStream;
 
@@ -21,7 +21,7 @@ public class Main {
         //SessionsFileStream stream = new SessionsFileStream("g:\\workspace_GPMiner\\data\\aggregated_sessions_nasa.csv");
         //SessionsFileStream stream = new SessionsFileStream("g:\\workspace_GPMiner\\data\\aggregated_sessions_sacbee.csv");
         
-        PatternsMine3 learner = new PatternsMine3(false);
+        PersonalizedPatternsMiner learner = new PersonalizedPatternsMiner(false);
         learner.minSupportOption.setValue(0.1);
         learner.relaxationRateOption.setValue(0.9);
         learner.fixedSegmentLengthOption.setValue(100);
@@ -37,8 +37,8 @@ public class Main {
         
         stream.prepareForUse();
         TimingUtils.enablePreciseTiming();
-	PatternsRecommendationEvaluator evaluator = 
-                new PatternsRecommendationEvaluator("g:\\workspace_DP2\\results_grid\\alef\\test.csv");
+	PPSDMRecommendationEvaluator evaluator = 
+                new PPSDMRecommendationEvaluator("g:\\workspace_DP2\\results_grid\\alef\\test.csv");
         double sumLCS = 0.0;
         int windowSize = learner.evaluationWindowSizeOption.getValue();
         int numberOfRecommendedItems = learner.numberOfRecommendedItemsOption.getValue();

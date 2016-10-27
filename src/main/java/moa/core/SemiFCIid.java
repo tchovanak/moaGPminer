@@ -22,6 +22,9 @@ package moa.core;
 
 import java.io.Serializable;
 
+/*
+    (Tomas Chovanak) added equals method 
+*/
 public class SemiFCIid implements Serializable{
 
     private static final long serialVersionUID = 4518952879185709365L;
@@ -81,10 +84,6 @@ public class SemiFCIid implements Serializable{
     public boolean isValid(){
         return position != -1;
     }
-
-    
-    
-    
     
     @Override
     public String toString() {

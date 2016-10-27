@@ -19,6 +19,7 @@
  */
 
 package moa.core;
+import moa.utils.PPSDM.UtilitiesPPSDM;
 import java.io.Serializable;
 import java.util.*;
 
@@ -192,10 +193,10 @@ public class InvertedFCIIndex implements Serializable {
             });
 
             Iterator<Integer> itemsIterator = itemset.iterator();
-            intSet = Utilities.intersect2orderedList(invertedIndex.get(itemsIterator.next()).getIDArray(fciSize),
+            intSet = UtilitiesPPSDM.intersect2orderedList(invertedIndex.get(itemsIterator.next()).getIDArray(fciSize),
                     invertedIndex.get(itemsIterator.next()).getIDArray(fciSize));
             while(itemsIterator.hasNext() && !intSet.isEmpty())
-                intSet = Utilities.intersect2orderedList(intSet,
+                intSet = UtilitiesPPSDM.intersect2orderedList(intSet,
                         invertedIndex.get(itemsIterator.next()).getIDArray(fciSize));
             
         }

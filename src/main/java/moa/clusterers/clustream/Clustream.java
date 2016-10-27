@@ -26,7 +26,7 @@ import java.util.List;
 import java.util.Random;
 import moa.cluster.Cluster;
 import moa.cluster.Clustering;
-import moa.cluster.SphereCluster;
+import moa.cluster.PPSDM.SphereClusterPPSDM;
 import moa.clusterers.AbstractClusterer;
 import moa.core.Measurement;
 import com.github.javacliparser.IntOption;
@@ -230,7 +230,7 @@ public class Clustream extends AbstractClusterer{
 		Cluster[] centers = new Cluster[k];
 		for (int i = 0; i < centers.length; i++) {
 			int rid = random.nextInt(k);
-			centers[i] = new SphereCluster(data.get(rid).getCenter(),0);
+			centers[i] = new SphereClusterPPSDM(data.get(rid).getCenter(),0);
 		}
 		Clustering clustering = kMeans(k, centers, data);
 		return clustering;
@@ -269,7 +269,7 @@ public class Clustream extends AbstractClusterer{
 			}
 
 			// Calculate new centers and clear clustering lists
-			SphereCluster[] newCenters = new SphereCluster[centers.length];
+			SphereClusterPPSDM[] newCenters = new SphereClusterPPSDM[centers.length];
 			for ( int i = 0; i < k; i++ ) {
 				newCenters[i] = calculateCenter( clustering.get( i ), dimensions );
                                 newCenters[i].setId(i);
@@ -281,14 +281,14 @@ public class Clustream extends AbstractClusterer{
 		return new Clustering( centers );
 	}
 
-	private static SphereCluster calculateCenter( ArrayList<Cluster> cluster, int dimensions ) {
+	private static SphereClusterPPSDM calculateCenter( ArrayList<Cluster> cluster, int dimensions ) {
 		double[] res = new double[dimensions];
 		for ( int i = 0; i < res.length; i++ ) {
 			res[i] = 0.0;
 		}
 
 		if ( cluster.size() == 0 ) {
-			return new SphereCluster( res, 0.0 );
+			return new SphereClusterPPSDM( res, 0.0 );
 		}
 
 		for ( Cluster point : cluster ) {
@@ -311,7 +311,7 @@ public class Clustream extends AbstractClusterer{
                             radius = dist;
 			}
 		}
-		SphereCluster sc = new SphereCluster( res, radius );
+		SphereClusterPPSDM sc = new SphereClusterPPSDM( res, radius );
 		sc.setWeight(cluster.size());
 		return sc;
 	}
