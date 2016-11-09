@@ -24,12 +24,15 @@ import java.util.Iterator;
 import java.util.List;
 
 /*
-    (Tomas Chovanak) No change
+    (Tomas Chovanak) Added support relative to segment length and k representation.
 */
 public class FrequentItemset {
+
+   
     
     protected List<Integer> items = new ArrayList<Integer>();
     protected int support;
+    protected double supportDouble;
     protected int size;
     
     /***
@@ -37,19 +40,47 @@ public class FrequentItemset {
      * @param items List of items
      * @param support Support value
      */
-    public FrequentItemset(List items, int support){
+    public FrequentItemset(List items, int support, double supportDouble){
         this.items = items;
         this.support = support;
         this.size = this.items.size();
+        this.supportDouble = supportDouble;
     }
 
+    public List<Integer> getItems() {
+        return items;
+    }
+
+    public void setItems(List<Integer> items) {
+        this.items = items;
+    }
+
+    public int getSupport() {
+        return support;
+    }
+
+    public void setSupport(int support) {
+        this.support = support;
+    }
+
+    public int getSize() {
+        return size;
+    }
+
+    public void setSize(int size) {
+        this.size = size;
+    }
+
+    public double getSupportDouble() {
+        return supportDouble;
+    }
     
     private List<FrequentItemset> getDirectSubsets(){
         List<FrequentItemset> res = new ArrayList<FrequentItemset>();
         for(int r=0;r<items.size();r++){
             List<Integer> subset = new ArrayList<Integer>(this.items);
             subset.remove(r);
-            res.add(new FrequentItemset(subset,this.support));
+            res.add(new FrequentItemset(subset,this.support, this.supportDouble));
         }
         return res;
     }
@@ -83,15 +114,47 @@ public class FrequentItemset {
      * @param segmentLength Number of transactions per segment
      * @return The list of frequent itemsets
      */
-    public static List<FrequentItemset> getFIset(Iterator<SemiFCI> iter, double minSupport, int segmentLength){
-        
-        List<ArrayList<FrequentItemset>> levels = new ArrayList<ArrayList<FrequentItemset>>();
+    
+    public static List<FrequentItemset> getFCIset(Iterator<SemiFCI> iter, double minSupport, int segmentLength) {
+        List<ArrayList<FrequentItemset>> levels = new ArrayList<>();
         int last_size = -1;
         
         //every closed frequent itemset is a frequent itemset
         while(iter.hasNext()){
             SemiFCI fci = iter.next();
-            FrequentItemset fi = new FrequentItemset(fci.getItems(), fci.getApproximateSupport(fci.getKValue()));
+            FrequentItemset fi = new FrequentItemset(fci.getItems(), 
+                    fci.getApproximateSupport(fci.getKValue()),
+                    (double)fci.getApproximateSupport(fci.getKValue())/(double)(segmentLength * (fci.getKValue() + 1))
+            );
+            
+            if(fi.support >= Math.ceil(minSupport * segmentLength * (fci.getKValue() + 1))){
+                if(last_size != fi.size){
+                    levels.add(new ArrayList<FrequentItemset>());
+                    last_size = fi.size;
+                }
+                levels.get(levels.size()-1).add(fi);
+            }                               
+        }
+        List<FrequentItemset> ret = new ArrayList<>();
+        for(List<FrequentItemset> level:levels)
+            ret.addAll(level);
+        
+        return ret;
+    }
+    
+    
+    public static List<FrequentItemset> getFIset(Iterator<SemiFCI> iter, double minSupport, int segmentLength){
+        
+        List<ArrayList<FrequentItemset>> levels = new ArrayList<>();
+        int last_size = -1;
+        
+        //every closed frequent itemset is a frequent itemset
+        while(iter.hasNext()){
+            SemiFCI fci = iter.next();
+            FrequentItemset fi = new FrequentItemset(fci.getItems(), 
+                    fci.getApproximateSupport(fci.getKValue()),
+                    (double)fci.getApproximateSupport(fci.getKValue())/(double)(segmentLength * (fci.getKValue() + 1))
+            );
             
             if(fi.support >= Math.ceil(minSupport * segmentLength * (fci.getKValue() + 1))){
                 if(last_size != fi.size){
@@ -118,7 +181,7 @@ public class FrequentItemset {
             }
         }
         
-        List<FrequentItemset> ret = new ArrayList<FrequentItemset>();
+        List<FrequentItemset> ret = new ArrayList<>();
         for(List<FrequentItemset> level:levels)
             ret.addAll(level);
         

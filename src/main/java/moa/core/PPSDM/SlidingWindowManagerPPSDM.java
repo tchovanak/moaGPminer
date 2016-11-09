@@ -20,12 +20,10 @@
 
 package moa.core.PPSDM;
 
-import moa.core.PPSDM.ObserverParamWrapper;
 import java.io.Serializable;
 import java.util.List;
 import java.util.Observable;
 import com.yahoo.labs.samoa.instances.Instance;
-import moa.core.PPSDM.SegmentPPSDM;
 import moa.core.SemiFCI;
 
 /*
@@ -37,12 +35,17 @@ public abstract class SlidingWindowManagerPPSDM extends Observable implements Se
     protected SegmentPPSDM currentSegment;
     protected double minSupport;
     protected int maxItemsetLength;
+    protected int windowSize;
     
     /**
      * Default constructor.
+     * @param minSupport
+     * @param maxItemsetLength
+     * @param windowSize
      */
-    public SlidingWindowManagerPPSDM(double minSupport, int maxItemsetLength)
-    {
+    public SlidingWindowManagerPPSDM(double minSupport, int maxItemsetLength, 
+            int windowSize){
+        this.windowSize = windowSize;
         this.currentSegment = new SegmentPPSDM(minSupport, maxItemsetLength);
         this.minSupport = minSupport;
         this.maxItemsetLength = maxItemsetLength;
@@ -53,15 +56,17 @@ public abstract class SlidingWindowManagerPPSDM extends Observable implements Se
     /**
      * Returns the last list of FCIs that have been computed.
      * @return list of FCIs
+     * @throws java.lang.Exception
      */
     public List<SemiFCI> getFCI() throws Exception{
-        return currentSegment.getFCI();
+        return currentSegment.getFCI(windowSize);
     }
 
     /**
      * Notifies the IncMine instance associated to the segment manager
      * (Tomas Chovanak) I created wrapper object for parameters. This already has groupid
      *  and in this method also segment length is set and sent to incmine.
+     * @param param
      */
     protected void notifyIncMine(ObserverParamWrapper param)
     {

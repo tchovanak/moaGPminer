@@ -1,4 +1,4 @@
-package CharmBitsetOrig;
+package moa.core.PPSDM.charm;
 
 import com.rits.cloning.Cloner;
 import java.io.Serializable;

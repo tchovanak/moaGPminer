@@ -5,7 +5,6 @@
  */
 package moa.core.PPSDM;
 
-import java.util.Map;
 
 /**
  *

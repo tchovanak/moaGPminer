@@ -20,6 +20,7 @@
 
 package moa.clusterers.clustream;
 
+import moa.clusterers.clustream.PPSDM.ClustreamKernelPPSDM;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
@@ -53,9 +54,9 @@ public class Clustream extends AbstractClusterer{
 
 	private int timeWindow;
 	private long timestamp = -1;
-	private ClustreamKernel[] kernels;
+	private ClustreamKernelPPSDM[] kernels;
 	private boolean initialized;
-	private List<ClustreamKernel> buffer; // Buffer for initialization with kNN
+	private List<ClustreamKernelPPSDM> buffer; // Buffer for initialization with kNN
 	private int bufferSize;
 	private double t;
 	private int m;
@@ -66,10 +67,10 @@ public class Clustream extends AbstractClusterer{
 
 	@Override
 	public void resetLearningImpl() {
-		this.kernels = new ClustreamKernel[maxNumKernelsOption.getValue()];
+		this.kernels = new ClustreamKernelPPSDM[maxNumKernelsOption.getValue()];
 		this.timeWindow = timeWindowOption.getValue();
 		this.initialized = false;
-		this.buffer = new LinkedList<ClustreamKernel>();
+		this.buffer = new LinkedList<ClustreamKernelPPSDM>();
 		this.bufferSize = maxNumKernelsOption.getValue();
 		t = kernelRadiFactorOption.getValue();
 		m = maxNumKernelsOption.getValue();
@@ -82,7 +83,7 @@ public class Clustream extends AbstractClusterer{
 		// 0. Initialize
 		if ( !initialized ) {
 			if ( buffer.size() < bufferSize ) {
-				buffer.add( new ClustreamKernel(instance,dim, timestamp, t, m) );
+				buffer.add( new ClustreamKernelPPSDM(instance,dim, timestamp, t, m) );
 				return;
 			}
 
@@ -91,7 +92,7 @@ public class Clustream extends AbstractClusterer{
                         //System.err.println("k="+k+" bufferSize="+bufferSize);
 			assert (k <= bufferSize);
 
-			ClustreamKernel[] centers = new ClustreamKernel[k];
+			ClustreamKernelPPSDM[] centers = new ClustreamKernelPPSDM[k];
 			for ( int i = 0; i < k; i++ ) {
 				centers[i] = buffer.get( i ); // TODO: make random!
 			}
@@ -99,7 +100,7 @@ public class Clustream extends AbstractClusterer{
                         Clustering kmeans_clustering = kMeans(k, buffer);
 
 			for ( int i = 0; i < kmeans_clustering.size(); i++ ) {
-				kernels[i] = new ClustreamKernel( new DenseInstance(1.0,centers[i].getCenter()), dim, timestamp, t, m );
+				kernels[i] = new ClustreamKernelPPSDM( new DenseInstance(1.0,centers[i].getCenter()), dim, timestamp, t, m );
 			}
 
 			buffer.clear();
@@ -109,7 +110,7 @@ public class Clustream extends AbstractClusterer{
 
 
 		// 1. Determine closest kernel
-		ClustreamKernel closestKernel = null;
+		ClustreamKernelPPSDM closestKernel = null;
 		double minDistance = Double.MAX_VALUE;
 		for ( int i = 0; i < kernels.length; i++ ) {
 			//System.out.println(i+" "+kernels[i].getWeight()+" "+kernels[i].getDeviation());
@@ -152,7 +153,7 @@ public class Clustream extends AbstractClusterer{
 		// 3.1 Try to forget old kernels
 		for ( int i = 0; i < kernels.length; i++ ) {
 			if ( kernels[i].getRelevanceStamp() < threshold ) {
-				kernels[i] = new ClustreamKernel( instance, dim, timestamp, t, m );
+				kernels[i] = new ClustreamKernelPPSDM( instance, dim, timestamp, t, m );
 				return;
 			}
 		}
@@ -175,7 +176,7 @@ public class Clustream extends AbstractClusterer{
 		assert (closestA != closestB);
 
 		kernels[closestA].add( kernels[closestB] );
-		kernels[closestB] = new ClustreamKernel( instance, dim, timestamp, t,  m );
+		kernels[closestB] = new ClustreamKernelPPSDM( instance, dim, timestamp, t,  m );
 	}
 
 	@Override
@@ -184,9 +185,9 @@ public class Clustream extends AbstractClusterer{
 			return new Clustering( new Cluster[0] );
 		}
 
-		ClustreamKernel[] res = new ClustreamKernel[kernels.length];
+		ClustreamKernelPPSDM[] res = new ClustreamKernelPPSDM[kernels.length];
 		for ( int i = 0; i < res.length; i++ ) {
-			res[i] = new ClustreamKernel( kernels[i], t, m );
+			res[i] = new ClustreamKernelPPSDM( kernels[i], t, m );
 		}
 
 		return new Clustering( res );
@@ -219,7 +220,7 @@ public class Clustream extends AbstractClusterer{
 	//    public static Clustering kMeans( int k, ArrayList<Instance> points, int dim ) {
 	//        ArrayList<ClustreamKernel> cl = new ArrayList<ClustreamKernel>();
 	//        for(Instance inst : points){
-	//            cl.add(new ClustreamKernel(inst, dim , 0, 0, 0));
+	//            cl.add(new ClustreamKernelPPSDM(inst, dim , 0, 0, 0));
 	//        }
 	//        Clustering clustering = kMeans(k, cl);
 	//        return clustering;

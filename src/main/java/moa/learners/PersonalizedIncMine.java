@@ -19,7 +19,7 @@
  */
 package moa.learners;
 
-import moa.utils.PPSDM.UtilitiesPPSDM;
+import moa.core.PPSDM.utils.UtilitiesPPSDM;
 import moa.core.PPSDM.SlidingWindowManagerPPSDM;
 import moa.core.PPSDM.ObserverParamWrapper;
 import java.math.BigDecimal;
@@ -43,16 +43,10 @@ import moa.core.PPSDM.FixedLengthWindowManagerPPSDM;
 public class PersonalizedIncMine extends AbstractLearner implements Observer {
     
     private static final long serialVersionUID = 1L;
-
-    PersonalizedIncMine(int value, int value0, int value1, double value2, double value3, int value4) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
-    }
-
+    
     void setRelaxationRate(double d) {
         this.r = d;
     }
-
-    
     
     private class Subset {
         private List<Integer> itemset;
@@ -60,7 +54,7 @@ public class PersonalizedIncMine extends AbstractLearner implements Observer {
         private boolean skipSubsetsNotInL;
         public Subset(List<Integer> itemset, int startIndex, boolean skipSubsetsNotInL)
         {
-            List<Integer> items = new ArrayList<Integer>();
+            List<Integer> items = new ArrayList<>();
             for(Integer i : itemset){
                 items.add(i);
             }
@@ -70,7 +64,7 @@ public class PersonalizedIncMine extends AbstractLearner implements Observer {
         }
 
         public List<Integer> getItemset() {
-            List<Integer> items = new ArrayList<Integer>();
+            List<Integer> items = new ArrayList<>();
             for(Integer i : itemset){
                 items.add(i);
             }
@@ -96,9 +90,6 @@ public class PersonalizedIncMine extends AbstractLearner implements Observer {
         public void setSkipSubsetsNotInL(boolean skipSubsetsNotInL) {
             this.skipSubsetsNotInL = skipSubsetsNotInL;
         }
-        
-        
-        
     }
     
     private int windowSizeOption;
@@ -109,7 +100,6 @@ public class PersonalizedIncMine extends AbstractLearner implements Observer {
     private int fixedSegmentLengthOption;
     private int groupFixedSegmentLengthOption;
     private int counter = 0;
-
     
     public PersonalizedIncMine(int windowSizeOption,int maxItemsetLengthOption,
             int numberOfGroupsOption, double minSupportOption,
@@ -125,11 +115,9 @@ public class PersonalizedIncMine extends AbstractLearner implements Observer {
 
     }
     
-    public static int windowSize;
-    public static int numberOfGroups;
+    
     protected double r;
     protected double sigma;
-    
     
     protected FCITablePPSDM fciTableGlobal;
     protected ArrayList<FCITablePPSDM> fciTablesGroups;
@@ -139,7 +127,6 @@ public class PersonalizedIncMine extends AbstractLearner implements Observer {
         
     protected boolean preciseCPUTiming;
     protected long evaluateStartTime;
-    
     private long startUpadateTime;
     private long endUpdateTime;
     
@@ -155,22 +142,23 @@ public class PersonalizedIncMine extends AbstractLearner implements Observer {
         for(int i = 0; i < this.numberOfGroupsOption; i++){ 
             fciTablesGroups.add(i, new FCITablePPSDM());
         }
-        PersonalizedIncMine.windowSize = this.windowSizeOption;
-        PersonalizedIncMine.numberOfGroups = this.numberOfGroupsOption;
         this.sigma = this.minSupportOption;
         this.r = this.relaxationRateOption;
         
-        double sigmaGroup = this.sigma/(double)this.numberOfGroupsOption;
+        //double sigmaGroup = this.sigma/(double)this.numberOfGroupsOption;
         double min_sup = new BigDecimal(this.r*this.sigma).setScale(8, RoundingMode.DOWN).doubleValue(); //necessary to correct double rounding error
         //double minSupGroup = new BigDecimal(this.r*sigmaGroup).setScale(8, RoundingMode.DOWN).doubleValue(); //necessary to correct double rounding error
-        this.swmGlobal = new FixedLengthWindowManagerPPSDM(min_sup, this.maxItemsetLengthOption, this.fixedSegmentLengthOption);
+        this.swmGlobal = new FixedLengthWindowManagerPPSDM(min_sup, 
+                this.maxItemsetLengthOption, this.fixedSegmentLengthOption, 
+                this.windowSizeOption);
         this.swmGlobal.deleteObservers();
         this.swmGlobal.addObserver(this);
         this.swmGroups = new ArrayList<>();
         // prepares sliding window for each group
         for(int i = 0; i < this.numberOfGroupsOption; i++){
             this.swmGroups.add(i, new FixedLengthWindowManagerPPSDM(min_sup, 
-                    this.maxItemsetLengthOption, this.groupFixedSegmentLengthOption ));
+                    this.maxItemsetLengthOption, this.groupFixedSegmentLengthOption, 
+                    this.windowSizeOption));
             this.swmGroups.get(i).deleteObservers();
             this.swmGroups.get(i).addObserver(this);        
         }
@@ -235,8 +223,6 @@ public class PersonalizedIncMine extends AbstractLearner implements Observer {
      */
     @Override
     public void update(Observable o, Object arg) {
-        counter++;
-        
         SlidingWindowManagerPPSDM swm = (SlidingWindowManagerPPSDM) o;
         ObserverParamWrapper param = (ObserverParamWrapper) arg;
         int groupid = param.getGroupid();
@@ -246,12 +232,13 @@ public class PersonalizedIncMine extends AbstractLearner implements Observer {
         }else{
             fciTable = this.fciTablesGroups.get(groupid);
         }
-        
         fciTable.nAdded = 0;
         fciTable.nRemoved = 0;
         int lastSegmentLenght = param.getSegmentLength();
-        this.minsup = UtilitiesPPSDM.getIncMineMinSupportVector(sigma,r,windowSize,lastSegmentLenght);
+        this.minsup = UtilitiesPPSDM.getIncMineMinSupportVector(sigma,r,windowSizeOption,lastSegmentLenght);
         
+        Configuration.START_UPDATE_TIME = TimingUtils.getNanoCPUTimeOfCurrentThread();
+        UtilitiesPPSDM.configureMaxUpdateTime();
         List<SemiFCI> semiFCIs = null;
         try {
             semiFCIs = swm.getFCI();
@@ -261,27 +248,21 @@ public class PersonalizedIncMine extends AbstractLearner implements Observer {
         
         //for each FCI in the last segment in size ascending order
         this.startUpadateTime = TimingUtils.getNanoCPUTimeOfCurrentThread();
-        for(SemiFCI fciOrig: semiFCIs) {
-            double ms = this.getUpdateTime()/1e6;
-            if(ms > Configuration.MAX_UPDATE_TIME/2){
+        
+        for(SemiFCI fci: semiFCIs) {
+            // SPEED REGULATION PART
+            double progress = UtilitiesPPSDM.getUpdateProgress();
+            if(progress > 1.0){
                 System.out.println("OUT OF TIME");
                 break;
-            }
-            SemiFCI fci = null;
-            try {
-                fci = (SemiFCI) fciOrig.clone();
-            } catch (CloneNotSupportedException ex) {
-                Logger.getLogger(PersonalizedIncMine.class.getName()).log(Level.SEVERE, null, ex);
-            }
-            if(fci.getItems().size() == 1){
-                continue;
-            }
+            } 
+            if(fci.getItems().size() == 1){ continue; }
+            
             SemiFCIid fciId = fciTable.select(fci.getItems());
             boolean newfci = false;
-            
             if(fciId.isValid()) {
                 //fci is already in the FCITable
-                fciTable.getFCIOriginal(fciId).pushSupport(fci.currentSupport());
+                fciTable.getFCI(fciId).pushSupport(fci.currentSupport());
                 computeK(fciId, 0, fciTable);                
             }else{
                 //fci is not in the FCITable yet
@@ -311,10 +292,8 @@ public class PersonalizedIncMine extends AbstractLearner implements Observer {
                
         }
         
-        
-        
         //iterate in size-descending order over the entire FCITable to remove unfrequent semiFCIs
-        for(Iterator<SemiFCI> iter =  fciTable.iteratorOriginal(); iter.hasNext(); ) {
+        for(Iterator<SemiFCI> iter =  fciTable.iterator(); iter.hasNext(); ) {
             SemiFCI s = iter.next();
             if(!s.isUpdated()) {
                 s.pushSupport(0);
@@ -331,16 +310,19 @@ public class PersonalizedIncMine extends AbstractLearner implements Observer {
             }else{
                 s.setUpdated(false);
             }
-
-        }       
-        fciTable.clearNewItemsetsTable();        
+        }    
+        
+        fciTable.clearNewItemsetsTable();   
+        // check all fciTable
         semiFCIs.clear();
-        double ms = this.getUpdateTime()/1e6;
-        if(counter % 100 == 0){
-//                clearSlidingWindow();
+        fciTable.incrementCounter();
+        if(fciTable.getCounter() % 10000 == 0){
+            fciTable.setCounter(0);
             fciTable.clearTable();
             System.gc();
         }
+        fciTable.computeSemiFcis(this.minSupportOption, 
+                this.fixedSegmentLengthOption);
         System.out.println("Update done in " + this.getUpdateTime()/1e6 + " ms.");
         System.out.println(fciTable.size() + " SemiFCIs actually stored\n");
         
@@ -446,7 +428,7 @@ public class PersonalizedIncMine extends AbstractLearner implements Observer {
             int[] supportVector = fciTable.getFCI(sfsId).getSupports();
             supportVector[0] = superFCI.getSupports()[0];
             
-            SemiFCI subFCI = new SemiFCI(subset, 0);
+            SemiFCI subFCI = new SemiFCI(subset, 0, this.windowSizeOption);
             subFCI.setSupports(supportVector);
             
             int k = subFCI.computeK(this.minsup,1);
@@ -461,6 +443,7 @@ public class PersonalizedIncMine extends AbstractLearner implements Observer {
      * the conditions to be maintained in the window
      * @param id id of the semiFCI
      * @param startK intial k value
+     * @param fciTable
      * @return value of k
      */
     public int computeK(SemiFCIid id, int startK, FCITablePPSDM fciTable) {

@@ -23,6 +23,7 @@ import moa.learners.PersonalizedPatternsMiner;
 import moa.streams.SessionsFileStream;
 import moa.core.PPSDM.dto.RecommendationResults;
 import moa.core.PPSDM.dto.SummaryResults;
+import moa.core.PPSDM.utils.UtilitiesPPSDM;
 
 /**
  * Task to evaluate one from configurations in grid during grid search. 
@@ -43,7 +44,7 @@ public class GridSearchLearnEvaluatePPSDMTask implements Task {
     private String pathToOutputFile;
     private double changed;
     private double[] lastparams;
-
+    
     
     public GridSearchLearnEvaluatePPSDMTask(int id, int fromid, List<Parameter> params, 
             double[] lastparams,
@@ -72,60 +73,71 @@ public class GridSearchLearnEvaluatePPSDMTask implements Task {
     public Object doTask() {
         id++; // id is always incremented
         findChangeInParams(params);
-        /*
-            if there was raised flag in previous evaluation that parameter configuration
-            is too slow, then this condition is used to check if any of desired 
-            parameters that are possibly speeding up alghoritm were changed, if so 
-            then new configuration is accepted as possibly faster, thus tried.
-        */
-        if(this.fasterWithoutGrouping){ 
-             if(checkLastParamsForFasterWithoutGroupingConfiguration(params)){ // params werent changed to better
-                fasterWithoutGrouping = true;
-                return null;
-            }else{
-                fasterWithoutGrouping = false;
-            }
+        if(fromid >= id){
+            return null;
         }
-        if(faster){
-            if(checkLastParamsForFasterConfiguration(params)){ // params werent changed to better
-                faster = true;
-                return null;
-            }else{
-                faster = false;
-            }
-        }
-        boolean repeatWithGrouping = false;
-        // some of not grouping params was changed so try with and without grouping, 
-        // if other params are changed only try with grouping
-        if(checkLastParamsForNotGroupingChange(params)){ 
-            repeatWithGrouping = true;
-            grouping = false;
-        }else{
-            grouping = true;
-        }
+//        /*
+//            if there was raised flag in previous evaluation that parameter configuration
+//            is too slow, then this condition is used to check if any of desired 
+//            parameters that are possibly speeding up alghoritm were changed, if so 
+//            then new configuration is accepted as possibly faster, thus tried.
+//        */
+//        if(this.fasterWithoutGrouping){ 
+//             if(checkLastParamsForFasterWithoutGroupingConfiguration(params)){ // params werent changed to better
+//                fasterWithoutGrouping = true;
+//                return null;
+//            }else{
+//                fasterWithoutGrouping = false;
+//            }
+//        }
+//        if(faster){
+//            if(checkLastParamsForFasterConfiguration(params)){ // params werent changed to better
+//                faster = true;
+//                return null;
+//            }else{
+//                faster = false;
+//            }
+//        }
+//        boolean repeatWithGrouping = false;
+//        // some of not grouping params was changed so try with and without grouping, 
+//        // if other params are changed only try with grouping
+//        if(checkLastParamsForNotGroupingChange(params)){ 
+//            repeatWithGrouping = true;
+//            grouping = false;
+//        }else{
+//            grouping = true;
+//        }
         
         // initialize and configure learner
         PersonalizedPatternsMiner learner = new PersonalizedPatternsMiner();
-        for(int i = 0; i < 2; i++){
-            configureLearnerWithParams(learner, params);
-            double originalUPDATETIME = 
-                    (learner.fixedSegmentLengthOption.getValue() 
-                    * (learner.minSupportOption.getValue()) * 100 ) / Configuration.SPEED_PARAM;
-            Configuration.MAX_UPDATE_TIME = originalUPDATETIME;
+//        for(int i = 0; i < 2; i++){
+            grouping = true;
+            boolean valid = configureLearnerWithParams(learner, params);
+            // CHECK IF segment legnth and support is valid:
+            if(!valid){
+                return null;
+            }
+            
+           
+//            double originalUPDATETIME = 
+//                    (learner.fixedSegmentLengthOption.getValue() 
+//                    * (learner.minSupportOption.getValue()) * 100 ) / Configuration.SPEED_PARAM;
+            //Configuration.MAX_UPDATE_TIME = originalUPDATETIME;
             updateLastParams(learner);
             // fromid is used to allow user restart evaluation from different point anytime
-            if(i == 1 && fromid >= id){
-                return null;
-            }
-            // fromid is used to allow user restart evaluation from different point anytime
-            if(i == 0 && fromid >= id && !repeatWithGrouping){
-                return null;
-            }
-            if(i == 0 && fromid >= id && repeatWithGrouping){
-                id++;
-                grouping = true;
-                continue;
-            }
+            
+//            if(i == 1 && fromid >= id){
+//                return null;
+//            }
+//            // fromid is used to allow user restart evaluation from different point anytime
+//            if(i == 0 && fromid >= id && !repeatWithGrouping){
+//                return null;
+//            }
+//            if(i == 0 && fromid >= id && repeatWithGrouping){
+//                id++;
+//                grouping = true;
+//                continue;
+//            }
             
             this.stream = new SessionsFileStream(this.pathToStream);
             writeConfigurationToFile(this.pathToSummaryOutputFile, learner);
@@ -137,14 +149,13 @@ public class GridSearchLearnEvaluatePPSDMTask implements Task {
                     new PPSDMRecommendationEvaluator(
                             this.pathToOutputFile + "results_G" + grouping + 
                                     "_id_" + id + ".csv");
-            int counter = 0;
-            long start = TimingUtils.getNanoCPUTimeOfCurrentThread();
-            double transsec = 0.0;
+            Configuration.TRANSACTION_COUNTER = 0;
+            Configuration.STREAM_START_TIME = TimingUtils.getNanoCPUTimeOfCurrentThread();
             int windowSize = learner.evaluationWindowSizeOption.getValue();
             
             while (stream.hasMoreInstances()) {
-                counter++;
-                if(counter == Configuration.EXTRACT_PATTERNS_AT){
+                Configuration.TRANSACTION_COUNTER++;
+                if(Configuration.TRANSACTION_COUNTER == Configuration.EXTRACT_PATTERNS_AT){
                     // NOW EXTRACT PATTERNS TO FILE
                     extractPatternsToFile(learner.extractPatterns(), this.pathToOutputFile + "patterns_" + id + ".csv");
                 }
@@ -153,55 +164,58 @@ public class GridSearchLearnEvaluatePPSDMTask implements Task {
 //                if(!stream.hasMoreInstances()){
 //                    stream.restart();
 //                }
+                double[] speedResults = UtilitiesPPSDM.getActualTransSec();
+                //System.out.println(speedResults[0]);
                 Example testInst = (Example) trainInst.copy();
-                if(counter > Configuration.START_EVALUATING_FROM){
+                if(Configuration.TRANSACTION_COUNTER > Configuration.START_EVALUATING_FROM){
                     RecommendationResults results = learner.getRecommendationsForInstance(testInst);
                     if(results != null)
-                        evaluator.addResult(results, windowSize, transsec, counter); // evaluator will evaluate recommendations and update metrics with given results     
+                        evaluator.addResult(results, windowSize, speedResults[0], Configuration.TRANSACTION_COUNTER); // evaluator will evaluate recommendations and update metrics with given results     
+                    
                 }
                 
                 learner.trainOnInstance(trainInst); // this will start training proces - it means first update clustering and then find frequent patterns
-                long end = TimingUtils.getNanoCPUTimeOfCurrentThread();
-                //long end = System.nanoTime();
-                double tp =((double)(end - start) / 1e9);
-                transsec = counter/tp;
+//                long end = TimingUtils.getNanoCPUTimeOfCurrentThread();
+//                //long end = System.nanoTime();
+//                double tp =((double)(end - Configuration.UPDATE_START_TIME) / 1e9);
+//                transsec = Configuration.TRANSACTION_COUNTER/tp;
                 // SPEED CONTROL PART
                 //if(transsec < Configuration.SPEED_PARAM * 10){
                     //Configuration.MAX_FCI_SET_COUNT = originalFCISETCOUNT * (transsec/((Configuration.DESIRED_TRANSSEC)*2));
-                if(counter > 2 * learner.fixedSegmentLengthOption.getValue()){
-                    double diff = ((transsec - Configuration.MIN_TRANSSEC) > 0)? (transsec - Configuration.MIN_TRANSSEC) : (Configuration.MIN_TRANSSEC - transsec) ;                     
-
-                    Configuration.MAX_UPDATE_TIME = (originalUPDATETIME * Math.log(diff)) / 
-                            Configuration.SPEED_PARAM;
+                //if(Configuration.TRANSACTION_COUNTER > 2 * learner.fixedSegmentLengthOption.getValue()){
+//                    double diff = ((transsec - Configuration.MIN_TRANSSEC) > 0)? (transsec - Configuration.MIN_TRANSSEC) : (Configuration.MIN_TRANSSEC - transsec) ;                     
+//
+//                    Configuration.MAX_UPDATE_TIME = (originalUPDATETIME * Math.log(diff)) / 
+//                            Configuration.SPEED_PARAM;
                     //System.out.println(Configuration.MAX_UPDATE_TIME);
-                }
+                    
+               // }
                 //}
-                
-                if(counter % learner.fixedSegmentLengthOption.getValue() == 0){
-                    System.out.println(counter); // to see progress
-                    if(transsec < Configuration.MIN_TRANSSEC/2){
-                        if(!grouping){
-                            fasterWithoutGrouping = true;
-                        }else{
-                            faster = true;
-                        }
-                        updateLastParams(learner);
-                        return null;
-                    }   
-                }
+//                if(Configuration.TRANSACTION_COUNTER % learner.fixedSegmentLengthOption.getValue() == 0){
+//                    System.out.println(Configuration.TRANSACTION_COUNTER); // to see progress
+//                    if(speedResults[0] < Configuration.MIN_TRANSSEC/2){
+//                        if(!grouping){
+//                            fasterWithoutGrouping = true;
+//                        }else{
+//                            faster = true;
+//                        }
+//                        updateLastParams(learner);
+//                        return null;
+//                    }   
+//                }
             }
-            long end = TimingUtils.getNanoCPUTimeOfCurrentThread();
-            double tp =((double)(end - start) / 1e9);
-            transsec = counter/tp;
+            
+            double[] speedResults = UtilitiesPPSDM.getActualTransSec();
             SummaryResults results = evaluator.getResults();
-            writeResultsToFile(results, transsec, tp, counter);
-            if(!repeatWithGrouping){
-                break;
-            }else if(i == 0){
-                id++;
-                grouping = true;
-            }
-        }
+            writeResultsToFile(results, speedResults[0], speedResults[1], 
+                    Configuration.TRANSACTION_COUNTER);
+//            if(!repeatWithGrouping){
+//                break;
+//            }else if(i == 0){
+//                id++;
+//                grouping = true;
+//            }
+//        }
         System.gc();
         return null;
     }
@@ -216,7 +230,7 @@ public class GridSearchLearnEvaluatePPSDMTask implements Task {
             for(FciValue fci : allPatterns){
                 pwriter.append(((Integer)fci.getGroupid()).toString());pwriter.append(','); 
                 pwriter.append(((Double)fci.getSupport()).toString());pwriter.append(','); 
-                pwriter.append((fci.getFci().getItems()).toString().replaceAll(","," "));pwriter.append(','); 
+                pwriter.append((fci.getItems()).toString().replaceAll(","," "));pwriter.append(','); 
                 pwriter.append('\n');
             }
             pwriter.close();
@@ -283,7 +297,7 @@ public class GridSearchLearnEvaluatePPSDMTask implements Task {
         this.lastparams[19] = learner.kernelRadiFactorOption.getValue();
     }
     
-    private void configureLearnerWithParams(PersonalizedPatternsMiner learner, List<Parameter> params){
+    private boolean configureLearnerWithParams(PersonalizedPatternsMiner learner, List<Parameter> params){
         // RECOMMEND PARAMETERS
         Configuration.RECOMMEND_STRATEGY = RecommendStrategiesEnum.valueOf((int) params.get(0).getValue());
         Configuration.SORT_STRATEGY = SortStrategiesEnum.valueOf((int) params.get(1).getValue());
@@ -293,6 +307,10 @@ public class GridSearchLearnEvaluatePPSDMTask implements Task {
         learner.minSupportOption.setValue(params.get(4).getValue());
         learner.relaxationRateOption.setValue(params.get(5).getValue());
         learner.fixedSegmentLengthOption.setValue((int) (params.get(6).getValue()));
+        // CHECK IF MIN SUPPORT AND SEGMENT LENGTH ARE VALID
+        if(learner.minSupportOption.getValue()*learner.fixedSegmentLengthOption.getValue() <= 1){
+            return false;
+        }
         
         learner.maxItemsetLengthOption.setValue((int) params.get(8).getValue());
         learner.windowSizeOption.setValue((int) params.get(9).getValue());
@@ -309,7 +327,7 @@ public class GridSearchLearnEvaluatePPSDMTask implements Task {
         learner.maxNumKernelsOption.setValue((int) params.get(18).getValue());
         learner.kernelRadiFactorOption.setValue((int) params.get(19).getValue());
         Configuration.START_EVALUATING_FROM = (int) params.get(20).getValue();
-        
+        Configuration.MAX_UPDATE_TIME = 20000;
         double gfsl = params.get(7).getValue();
         if(gfsl > 0){
             learner.groupFixedSegmentLengthOption.setValue((int) params.get(7).getValue());
@@ -320,6 +338,7 @@ public class GridSearchLearnEvaluatePPSDMTask implements Task {
         }else{
             learner.groupFixedSegmentLengthOption.setValue(learner.fixedSegmentLengthOption.getValue());
         }
+        return true;
         
     }
     
@@ -374,30 +393,30 @@ public class GridSearchLearnEvaluatePPSDMTask implements Task {
         try{
             this.writer = new FileWriter(this.pathToSummaryOutputFile, true);
             
-            writer.append(results.getAllHitsGGC().toString());writer.append(',');
-            writer.append(results.getRealRecommendedGGC().toString());writer.append(',');
-            writer.append(results.getPrecisionGGC().toString());writer.append(',');
-            writer.append(results.getRecallGGC().toString());writer.append(',');
-            writer.append(results.getF1GGC().toString());writer.append(',');
-            writer.append(results.getNdcgGGC().toString());writer.append(',');
+            writer.append(toInternalDataString(results.getAllHitsGGC()));writer.append(',');
+            writer.append(toInternalDataString(results.getRealRecommendedGGC()));writer.append(',');
+            writer.append(toInternalDataString(results.getPrecisionGGC()));writer.append(',');
+            writer.append(toInternalDataString(results.getRecallGGC()));writer.append(',');
+            writer.append(toInternalDataString(results.getF1GGC()));writer.append(',');
+            writer.append(toInternalDataString(results.getNdcgGGC()));writer.append(',');
             
-            writer.append(results.getAllHitsGO().toString());writer.append(',');
-            writer.append(results.getRealRecommendedGO().toString());writer.append(',');
-            writer.append(results.getPrecisionGO().toString());writer.append(',');
-            writer.append(results.getRecallGO().toString());writer.append(',');
-            writer.append(results.getF1GO().toString());writer.append(',');
-            writer.append(results.getNdcgGO().toString());writer.append(',');
+            writer.append(toInternalDataString(results.getAllHitsGO()));writer.append(',');
+            writer.append(toInternalDataString(results.getRealRecommendedGO()));writer.append(',');
+            writer.append(toInternalDataString(results.getPrecisionGO()));writer.append(',');
+            writer.append(toInternalDataString(results.getRecallGO()));writer.append(',');
+            writer.append(toInternalDataString(results.getF1GO()));writer.append(',');
+            writer.append(toInternalDataString(results.getNdcgGO()));writer.append(',');
             
-            writer.append(results.getAllHitsOG().toString());writer.append(',');
-            writer.append(results.getRealRecommendedOG().toString());writer.append(',');
-            writer.append(results.getPrecisionOG().toString());writer.append(',');
-            writer.append(results.getRecallOG().toString());writer.append(',');
-            writer.append(results.getF1OG().toString());writer.append(',');
-            writer.append(results.getNdcgOG().toString());writer.append(',');
+            writer.append(toInternalDataString(results.getAllHitsOG()));writer.append(',');
+            writer.append(toInternalDataString(results.getRealRecommendedOG()));writer.append(',');
+            writer.append(toInternalDataString(results.getPrecisionOG()));writer.append(',');
+            writer.append(toInternalDataString(results.getRecallOG()));writer.append(',');
+            writer.append(toInternalDataString(results.getF1OG()));writer.append(',');
+            writer.append(toInternalDataString(results.getNdcgOG()));writer.append(',');
             
-            writer.append(results.getAllTestedItems().toString());writer.append(',');
-            writer.append(results.getAllTestedTransactions().toString());writer.append(',');
-            writer.append(results.getMaxRecommendedItems().toString());writer.append(',');
+            writer.append(toInternalDataString(results.getAllTestedItems()));writer.append(',');
+            writer.append(toInternalDataString(results.getAllTestedTransactions()));writer.append(',');
+            writer.append(toInternalDataString(results.getMaxRecommendedItems()));writer.append(',');
             writer.append(((Double)tp).toString());writer.append(',');
             writer.append(((Double)transsec).toString());writer.append(',');
             writer.append(((Integer)counter).toString());writer.append('\n');
@@ -455,6 +474,28 @@ public class GridSearchLearnEvaluatePPSDMTask implements Task {
 
     public double[] getLastparams() {
         return lastparams;
+    }
+
+    private String toInternalDataString(int[] list) {
+        StringBuilder strBuild = new StringBuilder();
+        for(int i = 0; i < list.length; i++){
+            strBuild.append(list[i]);
+            if(i < list.length - 1){
+               strBuild.append(":"); 
+            }
+        }
+        return strBuild.toString();
+    }
+    
+     private String toInternalDataString(double[] list) {
+        StringBuilder strBuild = new StringBuilder();
+        for(int i = 0; i < list.length; i++){
+            strBuild.append(list[i]);
+            if(i < list.length - 1){
+               strBuild.append(":"); 
+            }
+        }
+        return strBuild.toString();
     }
 
     

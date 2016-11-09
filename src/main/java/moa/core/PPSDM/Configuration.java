@@ -77,5 +77,13 @@ public class Configuration {
     /*
         Distance metric used with clustering
     */
-    public static DistanceMetricsEnum DISTANCE_METRIC = DistanceMetricsEnum.PEARSON;
+    public static DistanceMetricsEnum DISTANCE_METRIC = DistanceMetricsEnum.EUCLIDEAN;
+    
+    public static int TRANSACTION_COUNTER = 0;
+    
+    public static double STREAM_START_TIME = 0;
+    
+    public static double START_UPDATE_TIME = 0;
+    
+    
 }

@@ -21,16 +21,16 @@ package moa.core.PPSDM;
 
 import java.io.Serializable;
 import java.util.*;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import moa.core.FrequentItemset;
 import moa.core.InvertedFCIIndex;
 import moa.core.SemiFCI;
 import moa.core.SemiFCIid;
-import moa.utils.PPSDM.UtilitiesPPSDM;
+import moa.core.PPSDM.utils.UtilitiesPPSDM;
 
 /*
    Changes > Author: Tomas Chovanak
    Added clearTable method to remove null  and empty fields from table and inverted index.
+   Constrained not to add SemiFcis to table if they are already there 
 */
 public class FCITablePPSDM implements Iterable<SemiFCI>, Serializable  {
     
@@ -42,7 +42,6 @@ public class FCITablePPSDM implements Iterable<SemiFCI>, Serializable  {
         private LinkedList<Integer> garbageQueue;
         private HashSet<Integer> goodPositions; //we store here the positions in the array containing a semiFCI to speedup iteration over the FCIArray
         private int size; //local variable to store the real number of semiFCIs stored
-        
         /**
         * Default constructor. Constructs an istance of FCIarray with an empty set
         * of itemstes and an empty garbage queue.
@@ -65,11 +64,11 @@ public class FCITablePPSDM implements Iterable<SemiFCI>, Serializable  {
             int pos;
             if(!this.garbageQueue.isEmpty()){
                 pos = garbageQueue.poll();
-                itemset.getIdOriginal().setPosition(pos);
+                itemset.getId().setPosition(pos);
                 this.itemsets.set(pos, itemset);
             }else{
                 pos = this.itemsets.size();
-                itemset.getIdOriginal().setPosition(pos);
+                itemset.getId().setPosition(pos);
                 this.itemsets.add(itemset);
             }
             this.size++;
@@ -100,12 +99,13 @@ public class FCITablePPSDM implements Iterable<SemiFCI>, Serializable  {
         public SemiFCI getFCI(int position) {
 
             if(!this.garbageQueue.contains(position))
-                try {
-                    return (SemiFCI) this.itemsets.get(position).clone();
-                } catch (CloneNotSupportedException ex) {
-                    Logger.getLogger(FCITablePPSDM.class.getName()).log(Level.SEVERE, null, ex);
-                    return null;
-                }
+                return this.itemsets.get(position);
+//                try {
+//                    return (SemiFCI) this.itemsets.get(position).clone();
+//                } catch (CloneNotSupportedException ex) {
+//                    Logger.getLogger(FCITablePPSDM.class.getName()).log(Level.SEVERE, null, ex);
+//                    return null;
+//                }
             else
                 return null;
         }
@@ -143,41 +143,11 @@ public class FCITablePPSDM implements Iterable<SemiFCI>, Serializable  {
 
         @Override
         public Iterator<SemiFCI> iterator() {
-            return new FCIArray.FCIArrayIterator();
+            return new FCIArray.FCIArrayIteratorOriginal();
         }
         
         public Iterator<SemiFCI> iteratorOriginal() {
             return new FCIArray.FCIArrayIteratorOriginal();
-        }
-
-        class FCIArrayIterator implements Iterator<SemiFCI> {
-            private Iterator<Integer> goodPosIterator = goodPositions.iterator();
-            private int currentPosition;
-            @Override
-            public boolean hasNext() {
-                return this.goodPosIterator.hasNext();
-            }
-
-            @Override
-            public SemiFCI next() {
-                if(!this.hasNext()) throw new NoSuchElementException();
-                    currentPosition = this.goodPosIterator.next();
-                try {
-                    return (SemiFCI) ((SemiFCI) itemsets.get(currentPosition)).clone();
-                } catch (CloneNotSupportedException ex) {
-                    Logger.getLogger(FCITablePPSDM.class.getName()).log(Level.SEVERE, null, ex);
-                    throw new NoSuchElementException();
-                }
-            }
-
-            @Override
-            public void remove() {
-                this.goodPosIterator.remove();
-                garbageQueue.add(currentPosition);
-                itemsets.set(currentPosition, null); //free up memory associated to ne removed semiFCI
-                size--;
-            }
-
         }
         
         class FCIArrayIteratorOriginal implements Iterator<SemiFCI> {
@@ -217,9 +187,12 @@ public class FCITablePPSDM implements Iterable<SemiFCI>, Serializable  {
     private HashMap<Integer, FCIArray> table;
     private InvertedFCIIndex invertedIndex;
     private int maxFCISize;
-    
     public int nAdded = 0;
     public int nRemoved = 0;
+    private List<FrequentItemset> fis = new ArrayList<>();
+    private List<FrequentItemset> fcis = new ArrayList<>();
+    private List<FrequentItemset> semifcis = new ArrayList<>();
+    
 
     /**
      * Default constructor. Creates a new FCITable with an empty Inverted Index
@@ -229,6 +202,44 @@ public class FCITablePPSDM implements Iterable<SemiFCI>, Serializable  {
         this.maxFCISize = 0;
         this.table = new HashMap<>();
         this.invertedIndex = new InvertedFCIIndex();
+    }
+    
+    private int counter = 0;
+    
+    public void incrementCounter(){
+        this.counter++;
+    }
+
+    public int getCounter() {
+        return counter;
+    }
+
+    public void setCounter(int counter) {
+        this.counter = counter;
+    }
+
+    public List<FrequentItemset> getFis() {
+        return fis;
+    }
+
+    public List<FrequentItemset> getFcis() {
+        return fcis;
+    }
+    
+    public List<FrequentItemset> getSemiFcis() {
+        return fcis;
+    }
+    
+    public void computeFis(double minSupport, int segmentLength) {
+        this.fis = FrequentItemset.getFIset(this.iterator(), minSupport, segmentLength);
+    }
+    
+    public void computeFcis(double minSupport, int segmentLength) {
+        this.fcis = FrequentItemset.getFCIset(this.iterator(), minSupport, segmentLength);
+    }
+    
+    public void computeSemiFcis(double minSupport, int segmentLength) {
+        this.semifcis = FrequentItemset.getFCIset(this.iterator(), 0, segmentLength);
     }
 
     /**
@@ -242,7 +253,12 @@ public class FCITablePPSDM implements Iterable<SemiFCI>, Serializable  {
             this.maxFCISize = itemsetSize;
         if(!this.table.containsKey(itemsetSize))
             this.table.put(itemsetSize, new FCIArray());
-        this.table.get(itemsetSize).addSemiFCI(itemset);
+        List<SemiFCI> itemsets = this.table.get(itemsetSize).itemsets;
+        if(itemsets.contains(itemset)){
+            int pos = itemsets.indexOf(itemset);
+            return itemsets.get(pos).getId();
+        }
+        this.table.get(itemsetSize).addSemiFCI(itemset );
         this.invertedIndex.addSemiFCI(itemset);
         this.nAdded++;
         return itemset.getId();
@@ -267,7 +283,7 @@ public class FCITablePPSDM implements Iterable<SemiFCI>, Serializable  {
      * @param id id of the semiFCI to be removed
      */
     public void removeSemiFCI(SemiFCIid id, Iterator<SemiFCI> iter) {
-        this.invertedIndex.removeSemiFCI(getFCIOriginal(id));
+        this.invertedIndex.removeSemiFCI(getFCI(id));
         //this.table.get(id.getDimension()).removeSemiFCI(id.getPosition());
         iter.remove();
         this.nRemoved++;
@@ -343,32 +359,6 @@ public class FCITablePPSDM implements Iterable<SemiFCI>, Serializable  {
             return new SemiFCIid(itemset.size(), positionList.get(0));
     }
 
-    /**
-     * Returns the ID of the Smallest semiFCI Superset of the passed itemset
-     * @param itemset itemeset to be selected
-     * @return id of the semiFCI that is SFS of the passed itemset
-     */
-//    public SemiFCIid selectSFS(SemiFCI fci, boolean checkSupport) {
-//        
-//        List<SemiFCIid> sfsList = this.invertedIndex.selectSFS(fci.items);
-//        
-//        if(sfsList.isEmpty())
-//            return new SemiFCIid (-1,-1);
-//        else{
-//            if(!checkSupport)
-//                return sfsList.get(0);
-//            else{
-//                //use support information to check closure property
-//                for(SemiFCIid sfsId:sfsList){
-//                    SemiFCI sfsCandidate = this.getFCI(sfsId);
-//                    if(sfsCandidate.getApproximateSupport(sfsCandidate.getKValue())==
-//                            fci.getApproximateSupport(sfsCandidate.getKValue()))
-//                        return sfsId;
-//                }
-//            }
-//        }
-//    }
-    
     
     public SemiFCIid selectSFS(SemiFCI fci, boolean checkSupport) {   
         for(int sfsSize = fci.size()+1; sfsSize < this.maxFCISize; sfsSize++){
@@ -442,30 +432,22 @@ public class FCITablePPSDM implements Iterable<SemiFCI>, Serializable  {
      */
     @Override
     public Iterator<SemiFCI> iterator() {
-        return new FCITableIterator(true);
+        return new FCITableIterator();
     }
     
-    public Iterator<SemiFCI> iteratorOriginal() {
-        return new FCITableIterator(false);
-    }
+   
 
     class FCITableIterator implements Iterator<SemiFCI>{
         private ArrayList<Integer> keys;
         private Iterator<SemiFCI> currentIterator;
         private int currentKeyIndex;
         private boolean hasNextElement = false;
-        private boolean cloning = false;
-        public FCITableIterator(boolean cloning) {
-            this.cloning = cloning;
+        public FCITableIterator() {
             this.keys = new ArrayList<Integer>(table.keySet());
             Collections.sort(keys);
             this.currentKeyIndex = keys.size()-1;
             if(this.currentKeyIndex>=0){
-                if(cloning){
-                    this.currentIterator = (Iterator<SemiFCI>) table.get(keys.get(currentKeyIndex)).iterator();
-                }else{
-                    this.currentIterator = (Iterator<SemiFCI>) table.get(keys.get(currentKeyIndex)).iteratorOriginal();
-                }
+                this.currentIterator = (Iterator<SemiFCI>) table.get(keys.get(currentKeyIndex)).iterator();
             } 
         }
         
@@ -483,8 +465,7 @@ public class FCITablePPSDM implements Iterable<SemiFCI>, Serializable  {
             this.currentIterator.remove();
         }
         
-        private void checkForNextElement()
-        {
+        private void checkForNextElement(){
             if(this.currentIterator == null){
                 this.hasNextElement = false;
                 return;
@@ -495,14 +476,8 @@ public class FCITablePPSDM implements Iterable<SemiFCI>, Serializable  {
             {
                 this.currentKeyIndex--;
                 this.hasNextElement = false;
-                while(this.currentKeyIndex>=0)
-                {   
-                    if(cloning){
-                        this.currentIterator = (Iterator<SemiFCI>) table.get(this.keys.get(this.currentKeyIndex)).iterator();
-                    }else{
-                        this.currentIterator = (Iterator<SemiFCI>) table.get(this.keys.get(this.currentKeyIndex)).iteratorOriginal();
-                    }
-                    
+                while(this.currentKeyIndex>=0){
+                    this.currentIterator = (Iterator<SemiFCI>) table.get(this.keys.get(this.currentKeyIndex)).iterator();
                     if(this.currentIterator.hasNext())
                     {
                         this.hasNextElement = true;
@@ -513,4 +488,6 @@ public class FCITablePPSDM implements Iterable<SemiFCI>, Serializable  {
             }
         }
     }
+    
+    
 }

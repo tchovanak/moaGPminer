@@ -60,5 +60,28 @@ public class RecommendationResults {
         this.numOfRecommendedItems = numOfRecommendedItems;
     }
 
+    public List<Integer> getFirstNRecommendationsGGC(int numRec) {
+       if(this.recommendationsGGC.size() >= numRec){
+           return this.recommendationsGGC.subList(0, numRec); 
+        }else{
+           return this.recommendationsGGC.subList(0, this.recommendationsGGC.size()); 
+        }
+    }
+
+    public List<Integer> getFirstNRecommendationsGO(int numRec) {
+        if(this.recommendationsGO.size() >= numRec){
+           return this.recommendationsGO.subList(0, numRec); 
+        }else{
+           return this.recommendationsGO.subList(0, this.recommendationsGO.size()); 
+        }
+    }
+    
+    public List<Integer> getFirstNRecommendationsOG(int numRec) {
+        if(this.recommendationsOG.size() >= numRec){
+           return this.recommendationsOG.subList(0, numRec); 
+        }else{
+           return this.recommendationsOG.subList(0, this.recommendationsOG.size()); 
+        }
+    }
     
 }

@@ -56,7 +56,6 @@ o The number of data points is maintained in n.
 public abstract class CFCluster extends SphereClusterPPSDM {
 
 	private static final long serialVersionUID = 1L;
-
 	protected double radiusFactor = 1.8;
 
 	/**
@@ -125,7 +124,6 @@ public abstract class CFCluster extends SphereClusterPPSDM {
 		 return res;
 	 }
 
-
 	 @Override
 	 public abstract double getInclusionProbability(Instance instance);
 
@@ -143,15 +141,15 @@ public abstract class CFCluster extends SphereClusterPPSDM {
 	  */
 	 @Override
 	 public double getWeight() {
-		 return N;
+            return N;
 	 }
 
 	 public void setN(double N){
-		 this.N = N;
+            this.N = N;
 	 }
 
 	 public double getN() {
-		 return N;
+            return N;
 	 }
 
 	 /**
@@ -161,13 +159,13 @@ public abstract class CFCluster extends SphereClusterPPSDM {
 	  * @param a2 Vector to be added. This vector does not change.
 	  */
 	 public static void addVectors(double[] a1, double[] a2) {
-		 assert (a1 != null);
-		 assert (a2 != null);
-		 assert (a1.length == a2.length) : "Adding two arrays of different "
-			 + "length";
+            assert (a1 != null);
+            assert (a2 != null);
+            assert (a1.length == a2.length) : "Adding two arrays of different "
+                    + "length";
 
-		 for (int i = 0; i < a1.length; i++) {
-			 a1[i] += a2[i];
-		 }
+            for (int i = 0; i < a1.length; i++) {
+                    a1[i] += a2[i];
+            }
 	 }
 }

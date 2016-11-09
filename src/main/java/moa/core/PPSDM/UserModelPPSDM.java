@@ -9,10 +9,10 @@ import com.yahoo.labs.samoa.instances.SparseInstance;
 import com.yahoo.labs.samoa.instances.Instance;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
-import moa.core.PPSDM.Configuration;
+
 /**
  *
- * @author Tomas
+ * @author Tomas Chovanak
  */
 public class UserModelPPSDM {
 
@@ -34,7 +34,7 @@ public class UserModelPPSDM {
         Updates user model with new instance representing one session
     */
     public void updateWithInstance(Instance inst) {
-        List<Integer> session = new LinkedList<Integer>();
+        List<Integer> session = new LinkedList<>();
         for(int i = 2; i < inst.numValues(); i++){
             session.add((int)Math.round(inst.value(i)));
         }
@@ -69,6 +69,35 @@ public class UserModelPPSDM {
         
     }
     
+    public Instance getNewSparseInstance(int nItems){
+        numOfNewSessions = 0;
+        List<InstanceValue> instValues = new ArrayList<>();
+        for(List<Integer> session: this.lastSessions){
+            for(Integer i : session){
+                if(i >= nItems ){
+                    continue;
+                }
+                int ind = instValues.indexOf(new InstanceValue(i));
+                if(ind >= 0){
+                    InstanceValue instVal = instValues.get(ind);
+                    instVal.setVal(instVal.getVal() + 1);
+                }else{
+                    InstanceValue instVal = new InstanceValue(i);
+                    instVal.setVal(1);
+                    instValues.add(instVal); 
+                }
+            }
+        }
+        Collections.sort(instValues);
+        double[] attValuesArray = new double[instValues.size()];
+        for(int i = 0; i < instValues.size(); i++) attValuesArray[i] = instValues.get(i).getVal();
+        int[] indicesArray = new int[instValues.size()];
+        for(int i = 0; i < instValues.size(); i++) indicesArray[i] = instValues.get(i).getIndex(); 
+        currentInstance = new SparseInstance(1.0,attValuesArray,indicesArray,nItems);
+        return currentInstance;
+    }
+    
+    
     public Instance getInstance(){
         return this.currentInstance;
     }
@@ -80,8 +109,7 @@ public class UserModelPPSDM {
     public void setId(int id) {
         this.id = id;
     }
-
-   
+    
     public double getGroupid() {
         return groupid;
     }
@@ -117,11 +145,24 @@ public class UserModelPPSDM {
     @Override
     public boolean equals(Object obj) {
         UserModelPPSDM um = (UserModelPPSDM) obj;
-        if(um.getId() == this.id){
-            return true;
-        }else{
+        if(um.getId() != this.id){
             return super.equals(obj); //To change body of generated methods, choose Tools | Templates.
+        }else{
+            return true;
         }
     }    
+
+    @Override
+    public int hashCode() {
+        int hash = 5;
+        hash = 89 * hash + this.id;
+        hash = 89 * hash + this.numOfNewSessions;
+        hash = 89 * hash + Objects.hashCode(this.currentInstance);
+        hash = 89 * hash + Objects.hashCode(this.lastSessions);
+        hash = 89 * hash + (int) (Double.doubleToLongBits(this.groupid) ^ (Double.doubleToLongBits(this.groupid) >>> 32));
+        hash = 89 * hash + (int) (Double.doubleToLongBits(this.distance) ^ (Double.doubleToLongBits(this.distance) >>> 32));
+        hash = 89 * hash + this.clusteringId;
+        return hash;
+    }
     
 }

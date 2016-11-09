@@ -20,10 +20,10 @@
 
 package moa.core.PPSDM;
 
-import CharmBitsetOrig.AlgoCharmBitsetWithSpeedRegulation;
-import CharmBitsetOrig.Context;
-import CharmBitsetOrig.Itemset;
-import CharmBitsetOrig.Itemsets;
+import moa.core.PPSDM.charm.AlgoCharmBitsetWithSpeedRegulation;
+import moa.core.PPSDM.charm.Context;
+import moa.core.PPSDM.charm.Itemset;
+import moa.core.PPSDM.charm.Itemsets;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
@@ -45,6 +45,7 @@ public class SegmentPPSDM implements Serializable{
     
     /**
      * Default constructor. Creates a new empty segment.
+     * @param minSupport
      */
     public SegmentPPSDM(double minSupport, int maxItemsetLength) {        
         this.context = new Context();
@@ -54,7 +55,7 @@ public class SegmentPPSDM implements Serializable{
 
     /**
      * Adds a new itemset to the segment
-     * @param itemset itemset to be added
+     * @param instance
      */
     public void addItemset(Instance instance) {
         context.addItemset(toItemset(instance));
@@ -78,34 +79,28 @@ public class SegmentPPSDM implements Serializable{
     /**
      * Return the list of FCIs mined in the current segment in size ascending order
      * (Tomas Chovanak) Added speed control part.
+     * @param windowSize
      * @return list of FCIs
      */
-    public List<SemiFCI> getFCI() {
+    public List<SemiFCI> getFCI(int windowSize) {
         AlgoCharmBitsetWithSpeedRegulation charm = new AlgoCharmBitsetWithSpeedRegulation();
         Itemsets closedItemsets = charm.runAlgorithm(context, minSupport, 1000000);
         System.out.println("Compute FCIs:" + charm.getExecTime() + "ms\n (CHARM-BITSET)");
         System.out.println(closedItemsets.getItemsetsCount() + " FCIs found in the last segment (CHARM-BITSET)");
         List<SemiFCI> fciSet = new ArrayList<SemiFCI>();
-        double startUpdateTime = TimingUtils.getNanoCPUTimeOfCurrentThread();
-        for(int levelIndex = 0; levelIndex < closedItemsets.getLevels().size(); levelIndex++){
+        // only take from level 2 itemsets with length one are unusable with recommendations
+        for(int levelIndex = 2; levelIndex < closedItemsets.getLevels().size(); levelIndex++){
             if ((this.MAX_ITEMSET_LENGTH != -1 && levelIndex > this.MAX_ITEMSET_LENGTH)){
                 break;
             }
-            // SPEED CONTROL PART
-            double endUpdateTime = TimingUtils.getNanoCPUTimeOfCurrentThread();
-            if(((endUpdateTime - startUpdateTime)/1e6 > Configuration.MAX_UPDATE_TIME)){
-                break;
-            }
-            
             List<Itemset> level = closedItemsets.getLevels().get(levelIndex);
             for(Itemset itemset: level){
-                SemiFCI newFci = new SemiFCI(new ArrayList<Integer>(itemset.getItems()),itemset.getAbsoluteSupport()); 
+                SemiFCI newFci = new SemiFCI(new ArrayList<>(itemset.getItems()),
+                        itemset.getAbsoluteSupport(), windowSize); 
                 fciSet.add(newFci);
-                
             }
-            
         }
-        return fciSet;
+        return fciSet; 
     }
     
     /**

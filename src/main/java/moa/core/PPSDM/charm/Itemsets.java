@@ -1,4 +1,4 @@
-package CharmBitsetOrig;
+package moa.core.PPSDM.charm;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;

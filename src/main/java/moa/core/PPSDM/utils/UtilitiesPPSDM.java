@@ -17,10 +17,12 @@
  *    along with this program; if not, write to the Free Software
  *    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-package moa.utils.PPSDM;
+package moa.core.PPSDM.utils;
 
 import java.util.*;
 import moa.core.FrequentItemset;
+import moa.core.PPSDM.Configuration;
+import moa.core.TimingUtils;
 
 
 /*
@@ -85,7 +87,33 @@ public class UtilitiesPPSDM {
             else                                 j++;
         }
     }
+
+    public static double[] getActualTransSec() {
+        long end = TimingUtils.getNanoCPUTimeOfCurrentThread();
+        double tp =((double)(end - Configuration.STREAM_START_TIME) / 1e9);
+        double transsec = Configuration.TRANSACTION_COUNTER/tp;
+        double[] res = new double[2];
+        res[0] = transsec; res[1] = tp;
+        return res;
+    }
     
+    public static void configureMaxUpdateTime() {
+        
+        //long end = TimingUtils.getNanoCPUTimeOfCurrentThread();
+//        double tp = Configuration.START_UPDATE_TIME/1e9 - Configuration.STREAM_START_TIME/1e9;
+        double update = 
+                (Configuration.TRANSACTION_COUNTER / Configuration.MIN_TRANSSEC ) - Configuration.START_UPDATE_TIME/1e9 + Configuration.STREAM_START_TIME/1e9;
+        if(update < 0){
+            update = 0;
+        }
+        Configuration.MAX_UPDATE_TIME = update;
+    }
+    
+    public static double getUpdateProgress(){
+        long end = TimingUtils.getNanoCPUTimeOfCurrentThread();
+        double tp =((double)(end - Configuration.START_UPDATE_TIME) / 1e9);
+        return tp/Configuration.MAX_UPDATE_TIME;
+    }
     
     private UtilitiesPPSDM(){};
     
@@ -100,7 +128,7 @@ public class UtilitiesPPSDM {
         if(s1.size() > s2.size())
             return intersect2orderedList(s2,s1);
         
-        List<Integer> res = new ArrayList<Integer>();
+        List<Integer> res = new ArrayList<>();
         int pos1 = 0, pos2 = 0;
 
         while(pos1 < s1.size() && pos2 < s2.size()) {

@@ -14,18 +14,15 @@ import com.yahoo.labs.samoa.instances.Prediction;
 import com.yahoo.labs.samoa.instances.Instance;
 import moa.core.InstanceExample;
 import moa.clusterers.clustream.PPSDM.WithKmeansPPSDM;
-import moa.clusterers.clustream.Clustream;
 import moa.cluster.Clustering;
 import moa.cluster.Cluster;
 import moa.cluster.PPSDM.SphereClusterPPSDM;
 import com.yahoo.labs.samoa.instances.SparseInstance;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import moa.core.PPSDM.Configuration;
 import moa.core.PPSDM.FCITablePPSDM;
-import moa.utils.PPSDM.MapUtil;
-import moa.utils.PPSDM.UtilitiesPPSDM;
+import moa.core.PPSDM.utils.MapUtil;
+import moa.core.PPSDM.utils.UtilitiesPPSDM;
 
 /*
     This class defines new AbstractLearner that performs clustering of users to groups and 
@@ -110,6 +107,7 @@ public class PersonalizedPatternsMiner extends AbstractLearner implements Observ
     private List<Integer> recsCombined = new ArrayList<>();
     
     private Clustering kmeansClustering;
+    private Clustering cleanedKmeansClustering;
     private int clusteringId = 0;
     private int cntOnlyGroup;
     private int cntOnlyGlobal;
@@ -154,26 +152,42 @@ public class PersonalizedPatternsMiner extends AbstractLearner implements Observ
     
     @Override
     public void trainOnInstance(Example e) {
-        // first update user model with new data
+        // B3: USER MODEL UPDATE
         Instance inst = (Instance) e.getData();
         if(useGroupingOption.isSet()){
             UserModelPPSDM um = updateUserModel(inst.copy());
             if(um.getNumOfNewSessions() > this.numMinNumberOfChangesInUserModel.getValue()){
-                Instance umInstance = um.getNewInstance(this.maxNumPages.getValue());
+                //Instance umInstance = um.getNewInstance(this.maxNumPages.getValue());
+                // B4: NULLING USER MODEL CHANGES NUMBER
+                Instance umInstance = um.getNewSparseInstance(this.maxNumPages.getValue());
+                // B5: UPDATE MICROCLUSTERS AND INCREMENT MICROCLUSTERS CHANGES
                 clusterer.trainOnInstance(umInstance);
+                //clusterer.trainOnSparseInstance(umInstance);
                 this.microclusteringUpdatesCounter++;
                 if(this.microclusteringUpdatesCounter > this.numMinNumberOfMicroclustersUpdates.getValue()){
                     // perform macroclustering
+                    // B6: NULLING MICROCLUSTERS UPDATES COUNTER
                     this.microclusteringUpdatesCounter = 0;
+                    // B7: PERFORM MACROCLUSTERING
                     Clustering results = clusterer.getMicroClusteringResult();
                     if(results != null){
                         AutoExpandVector<Cluster> clusters = results.getClustering();
                         if(clusters.size() > 0){
                             // save new clustering
-                            this.kmeansClustering = Clustream.kMeans(
-                                    this.numberOfGroupsOption.getValue(),
-                                    clusters);
+                            List<Clustering> clusterings;
+                            if(this.kmeansClustering == null){
+                                clusterings =
+                                        clusterer.kMeans_rand(this.numberOfGroupsOption.getValue(),results);
+                                this.kmeansClustering = clusterings.get(0);
+                                this.cleanedKmeansClustering = clusterings.get(1);
+                            }else{
+                                clusterings =
+                                        clusterer.kMeans_gta(this.numberOfGroupsOption.getValue(),results, cleanedKmeansClustering);
+                                this.kmeansClustering = clusterings.get(0);
+                                this.cleanedKmeansClustering = clusterings.get(1);
+                            }
                             this.clusteringId++;
+                            // B8 : CLEAR OLD USER MODELS
                             this.clearUserModels();
                         }
                     }
@@ -211,13 +225,13 @@ public class PersonalizedPatternsMiner extends AbstractLearner implements Observ
             if(kmeansClustering != null){  // if already clustering was performed
                 clusters = this.kmeansClustering.getClustering();
             }
-            Cluster bestCluster = null;
-            double minDist = 1.0;
+            Cluster bestCluster;
+            double minDist = Double.MAX_VALUE;
             for(Cluster c : clusters){
                 SphereClusterPPSDM cs = (SphereClusterPPSDM) c; // kmeans produce sphere clusters
                 //double dist = cs.getCenterDistance(umInstance)/cs.getRadius();
                 double dist = cs.getCenterDistancePearson(umInstance);
-                if(dist <= 1.0 && dist < minDist){
+                if(dist < 1.0 && dist < minDist){
                     bestCluster = cs;
                     minDist = dist;
                     um.setGroupid(bestCluster.getId());
@@ -239,54 +253,43 @@ public class PersonalizedPatternsMiner extends AbstractLearner implements Observ
         for(int i = 0; i < session.numValues(); i++){
             sessionArray.add(i,session.value(i)); 
         }
-               
         int evaluationWindowSize = evaluationWindowSizeOption.getValue();
         // TESTING Instance - how it performs on recommendation.
         // get window from actual instance
         List<Integer> window = new ArrayList<>(); // items inside window 
         List<Integer> outOfWindow = new ArrayList<>(); // items out of window 
-        
-        int outOfWindowSize = ((sessionArray.size() - 2) - evaluationWindowSize);
-        if((evaluationWindowSize >= (sessionArray.size()-2))
-            || (outOfWindowSize
-                < this.numberOfRecommendedItemsOption.getValue()) 
-                ){ 
+
+        if((evaluationWindowSize >= (sessionArray.size()-2))){ 
             return null; // this is when session array is too short - it is ignored.
         }
+        
         for(int i = 2; i <= evaluationWindowSize + 1; i++){ // first item is groupid, 2nd uid
             window.add((int) Math.round(sessionArray.get(i)));
         }
+        
         // maximum number of evaluated future items is the same as number of recommended items.
         for(int i = evaluationWindowSize + 2, j = 0; i < sessionArray.size(); i++){
             outOfWindow.add((int) Math.round(sessionArray.get(i)));
         }
-        //to get all fcis found 
-        Iterator<SemiFCI> it = this.incMine.fciTableGlobal.iterator();
         
+        //to get all fcis found 
         List<FciValue> mapFciWeight = new LinkedList<>();
         List<FciValue> mapFciWeightGroup = new LinkedList<>();
-        List<FciValue> mapFciWeightGlobal = new LinkedList<>();
+        List<FciValue> mapFciWeightGlobal = new LinkedList<>(); 
+        Iterator<FrequentItemset> itFis = this.incMine.fciTableGlobal.getSemiFcis().iterator();
         
-        while(it.hasNext()){
-            SemiFCI fci = null;
-            try {
-                fci = (SemiFCI) it.next().clone();
-            } catch (CloneNotSupportedException ex) {
-                Logger.getLogger(PersonalizedPatternsMiner.class.getName()).log(Level.SEVERE, null, ex);
-            }
-            if(fci.size() > 1){
-                List<Integer> items = fci.getItems();
+        while(itFis.hasNext()){
+            FrequentItemset fi = itFis.next();
+            if(fi.getSize() > 1){
+                List<Integer> items = fi.getItems();
                 double hitsVal = this.computeSimilarity(items,window);
                 if(hitsVal == 0.0){
                     continue;
                 }
-                double support = this.calculateSupport(fci);
-//                if(support < this.minSupportOption.getValue()){
-//                    continue;
-//                }
                 FciValue fciVal = new FciValue();
-                fciVal.setFci(fci);
-                fciVal.computeValue(hitsVal, support, 0, minSupportOption.getValue());
+                fciVal.setItems(fi.getItems());
+                fciVal.computeValue(hitsVal, fi.getSupportDouble(),
+                        0, minSupportOption.getValue());
                 mapFciWeight.add(fciVal);
                 mapFciWeightGlobal.add(fciVal);
             }
@@ -304,51 +307,37 @@ public class PersonalizedPatternsMiner extends AbstractLearner implements Observ
                 sessionArray.set(0,-1.0);
             }            
             //         This next block performs the same with group fcis. 
-            //         This can be commented out to test performance without group fcis.
-//            int preference = 0;
-//            for(double groupid : groupids){
             if(groupid != -1.0){
-                Iterator<SemiFCI> itG  = this.incMine.fciTablesGroups.get((int) Math.round(groupid)).iterator();
-                while(itG.hasNext()){
-                    SemiFCI fci = null;
-                    try {
-                        fci = (SemiFCI) itG.next().clone();
-                    } catch (CloneNotSupportedException ex) {
-                        Logger.getLogger(PersonalizedPatternsMiner.class.getName()).log(Level.SEVERE, null, ex);
-                    }
-                    if(fci.size() > 1){
-                        List<Integer> items = fci.getItems();
+                Iterator<FrequentItemset> itFisG = 
+                        this.incMine.fciTablesGroups.get((int) Math.round(groupid)).getSemiFcis().iterator();
+                while(itFisG.hasNext()){
+                    FrequentItemset fi = itFisG.next();
+                    if(fi.getSize() > 1){
+                        List<Integer> items = fi.getItems();
                         double hitsVal = this.computeSimilarity(items,window);
                         if(hitsVal == 0.0){
                             continue;
                         }
-                        double support = this.calculateSupport(fci);
-//                        if(support < (this.minSupportOption.getValue())){
-//                            continue;
-//                        }
                         FciValue fciVal = new FciValue();
-                        fciVal.setGroupFciFlag(true);
-                            ///fciVal.setPreference(preference);
-                        fciVal.setFci( fci);
+                        fciVal.setItems(fi.getItems());
                         fciVal.setDistance(distance);
-                        fciVal.computeValue(hitsVal, support, 0, minSupportOption.getValue());
+                        fciVal.computeValue(hitsVal, fi.getSupportDouble(), 
+                                0, minSupportOption.getValue());
                         mapFciWeight.add(fciVal);
                         mapFciWeightGroup.add(fciVal);
                     }
                 }
             }
-                
-//            }
         }
         
-        // another solution every time take best 2 patterns from group and from global
-        // prefer items that are both in global and group pattern.
-        
         // all fcis found have to be sorted descending by its support and similarity.
-        //Map<SemiFCI, FciValue> sortedByValue = MapUtil.sortByValue(mapFciWeight);
+        
         Collections.sort(mapFciWeight);
         Collections.sort(mapFciWeightGroup);
         Collections.sort(mapFciWeightGlobal);
+        
+        
+        
         switch (Configuration.RECOMMEND_STRATEGY) {
             case VOTES:
                 generateRecsVoteStrategy(mapFciWeightGlobal,
@@ -359,44 +348,47 @@ public class PersonalizedPatternsMiner extends AbstractLearner implements Observ
                         mapFciWeightGroup, window);
                 break;
         }        
-          RecommendationResults results = new RecommendationResults();
-          results.setTestWindow(outOfWindow);
-          results.setNumOfRecommendedItems(this.numberOfRecommendedItemsOption.getValue());
-          results.setRecommendationsGGC(recsCombined);
-          results.setRecommendationsGO(recsOnlyFromGlobal);
-          results.setRecommendationsOG(recsOnlyFromGroup);
-          return results;
+        RecommendationResults results = new RecommendationResults();
+        results.setTestWindow(outOfWindow);
+        results.setNumOfRecommendedItems(this.numberOfRecommendedItemsOption.getValue());
+        results.setRecommendationsGGC(recsCombined);
+        results.setRecommendationsGO(recsOnlyFromGlobal);
+        results.setRecommendationsOG(recsOnlyFromGroup);
+        return results;
     }
     
     public List<FciValue> extractPatterns(){
+        
         FCITablePPSDM fciTableGlobal = this.incMine.fciTableGlobal;
         List<FCITablePPSDM> fciTablesGroup = this.incMine.fciTablesGroups;
         List<FciValue> allPatterns = new ArrayList<>();
-        Iterator<SemiFCI> it = fciTableGlobal.iterator();
-        while(it.hasNext()){
-            SemiFCI sfci = it.next();
-            double support = this.calculateSupport(sfci);
-            if(support >= this.minSupportOption.getValue()){
+        
+        Iterator<FrequentItemset> itGlob = fciTableGlobal.getFcis().iterator();
+        while(itGlob.hasNext()){
+            FrequentItemset sfci = itGlob.next();
+            //double support = this.calculateSupport(sfci);
+            //if(support >= this.minSupportOption.getValue()){
                 FciValue fciVal = new FciValue();
-                fciVal.setFci(sfci);
-                fciVal.setSupport(support);
+                fciVal.setItems(sfci.getItems());
+                fciVal.setSupport(sfci.getSupportDouble());
                 fciVal.setGroupid(-1);
                 allPatterns.add(fciVal);
-            }
+            //}
         }
         int groupid = 0;
         for(FCITablePPSDM gTable: fciTablesGroup){
-            it = gTable.iterator();
-            while(it.hasNext()){
-                SemiFCI sfci = it.next();
-                double support = this.calculateSupport(sfci);
-                if(support >= this.minSupportOption.getValue()){
+            Iterator<FrequentItemset> itGr = gTable.getFcis().iterator();
+            while(itGr.hasNext()){
+                FrequentItemset sfci = itGr.next();
+                //double support = this.calculateSupport(sfci);
+                //if(support >= this.minSupportOption.getValue()){
                     FciValue fciVal = new FciValue();
-                    fciVal.setFci(sfci);
-                    fciVal.setSupport(support);
+                    fciVal.setItems(sfci.getItems());
+                    //fciVal.setFci(sfci);
+                    fciVal.setSupport(sfci.getSupportDouble());
                     fciVal.setGroupid(groupid);
                     allPatterns.add(fciVal);
-                }
+                //}
             }
             groupid++;
         }
@@ -460,7 +452,8 @@ public class PersonalizedPatternsMiner extends AbstractLearner implements Observ
             um.updateWithInstance(inst);
             return um;
         }else{
-            UserModelPPSDM um = new UserModelPPSDM((int)inst.value(1), this.numMinNumberOfChangesInUserModel.getValue());
+            UserModelPPSDM um = new UserModelPPSDM((int)inst.value(1), 
+                    this.numMinNumberOfChangesInUserModel.getValue());
             um.updateWithInstance(inst);
             um.setGroupid(inst.value(0));
             usermodels.put(uid, um);
@@ -506,11 +499,8 @@ public class PersonalizedPatternsMiner extends AbstractLearner implements Observ
         while(itGlobal.hasNext() || itGroup.hasNext()){
             if(itGlobal.hasNext()){
                FciValue fci = itGlobal.next();
-               Iterator<Integer> itFciItems = fci.getFci().getItems().iterator();
-               double distance = 1.0;
-               int all = fci.getFci().size();
+               Iterator<Integer> itFciItems = fci.getItems().iterator();
                while(itFciItems.hasNext()){
-                   distance = distance - (distance/all);
                    Integer item = itFciItems.next();         
                    if(mapItemsVotes.containsKey(item)){   
                        Double newVal = mapItemsVotes.get(item) + fci.getLcsVal()*fci.getSupport();
@@ -534,7 +524,7 @@ public class PersonalizedPatternsMiner extends AbstractLearner implements Observ
             }
             if(itGroup.hasNext()){
                FciValue fci = itGroup.next();
-               Iterator<Integer> itFciItems = fci.getFci().getItems().iterator();
+               Iterator<Integer> itFciItems = fci.getItems().iterator();
                while(itFciItems.hasNext()){
                    Integer item = itFciItems.next();
                     double dist = fci.getDistance();
@@ -577,6 +567,7 @@ public class PersonalizedPatternsMiner extends AbstractLearner implements Observ
         cntAll = 0;
         cntOnlyGlobal = 0;
         cntOnlyGroup = 0;
+        
         for(Map.Entry<Integer,Double> e : mapItemsVotes.entrySet()) {
             Integer item = e.getKey();
             recsCombined.add(item);
@@ -601,6 +592,8 @@ public class PersonalizedPatternsMiner extends AbstractLearner implements Observ
                 break;
             } 
         }
+        
+        
         
     }
 
@@ -655,7 +648,6 @@ public class PersonalizedPatternsMiner extends AbstractLearner implements Observ
             }
         }
         
-        
         for(FciValue fciVal : mapFciWeightGlobal) {
             SemiFCI key = fciVal.getFci();
             List<Integer> items = key.getItems();
@@ -693,7 +685,5 @@ public class PersonalizedPatternsMiner extends AbstractLearner implements Observ
     public double[] getVotesForInstance(Example e) {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
-
-   
 
 }

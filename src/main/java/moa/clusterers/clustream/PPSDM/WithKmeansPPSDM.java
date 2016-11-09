@@ -41,7 +41,7 @@ import moa.core.Measurement;
 import com.github.javacliparser.IntOption;
 import com.yahoo.labs.samoa.instances.DenseInstance;
 import com.yahoo.labs.samoa.instances.Instance;
-import moa.clusterers.clustream.ClustreamKernel;
+import java.util.Map;
 import moa.core.PPSDM.Configuration;
 import org.apache.commons.math3.stat.correlation.PearsonsCorrelation;
 
@@ -70,9 +70,9 @@ public class WithKmeansPPSDM extends AbstractClusterer {
 
 	private int timeWindow;
 	private long timestamp = -1;
-	private ClustreamKernel[] kernels;
+	private ClustreamKernelPPSDM[] kernels;
 	private boolean initialized;
-	private List<ClustreamKernel> buffer; // Buffer for initialization with kNN
+	private List<ClustreamKernelPPSDM> buffer; // Buffer for initialization with kNN
 	private int bufferSize;
 	private double t;
 	private int m;
@@ -83,7 +83,7 @@ public class WithKmeansPPSDM extends AbstractClusterer {
 
 	@Override
 	public void resetLearningImpl() {
-		this.kernels = new ClustreamKernel[maxNumKernelsOption.getValue()];
+		this.kernels = new ClustreamKernelPPSDM[maxNumKernelsOption.getValue()];
 		this.timeWindow = timeWindowOption.getValue();
 		this.initialized = false;
 		this.buffer = new LinkedList<>();
@@ -94,16 +94,16 @@ public class WithKmeansPPSDM extends AbstractClusterer {
 
 	@Override
 	public void trainOnInstanceImpl(Instance instance) {
-		int dim = instance.numValues();
+		int dim = instance.numAttributes(); // CHANGED FROM numValues to numAttributes
 		timestamp++;
 		// 0. Initialize
 		if (!initialized) {
 			if (buffer.size() < bufferSize) {
-				buffer.add(new ClustreamKernel(instance, dim, timestamp, t, m));
+				buffer.add(new ClustreamKernelPPSDM(instance, dim, timestamp, t, m));
 				return;
 			} else {
 				for (int i = 0; i < buffer.size(); i++) {
-					kernels[i] = new ClustreamKernel(new DenseInstance(1.0, buffer.get(i).getCenter()), dim, timestamp, t, m);
+					kernels[i] = new ClustreamKernelPPSDM(new DenseInstance(1.0, buffer.get(i).getCenter()), dim, timestamp, t, m);
 				}
 	
 				buffer.clear();
@@ -115,12 +115,13 @@ public class WithKmeansPPSDM extends AbstractClusterer {
 
 		// 1. Determine closest kernel
                 
-		ClustreamKernel closestKernel = null;
+		ClustreamKernelPPSDM closestKernel = null;
 		double minDistance = Double.MAX_VALUE;
 		for ( int i = 0; i < kernels.length; i++ ) {
 			//System.out.println(i+" "+kernels[i].getWeight()+" "+kernels[i].getDeviation());
 			double distance = distance(instance.toDoubleArray(), kernels[i].getCenterForReading());
-			if (distance < minDistance) {
+			//double distance = distance(instance, kernels[i].getCenterAsInstanceForReading());
+                        if (distance < minDistance) {
 				closestKernel = kernels[i];
 				minDistance = distance;
 			}
@@ -133,12 +134,14 @@ public class WithKmeansPPSDM extends AbstractClusterer {
 			// next closest cluster
 			radius = Double.MAX_VALUE;
 			double[] center = closestKernel.getCenterForReading();
+                        //Instance center = closestKernel.getCenterAsInstanceForReading();
 			for ( int i = 0; i < kernels.length; i++ ) {
 				if ( kernels[i] == closestKernel ) {
 					continue;
 				}
 
 				double distance = distance(kernels[i].getCenterForReading(), center );
+                                //double distance = distance(kernels[i].getCenterAsInstanceForReading(), center );
 				radius = Math.min( distance, radius );
 			}
 		} else {
@@ -158,7 +161,7 @@ public class WithKmeansPPSDM extends AbstractClusterer {
 		// 3.1 Try to forget old kernels
 		for ( int i = 0; i < kernels.length; i++ ) {
 			if ( kernels[i].getRelevanceStamp() < threshold ) {
-				kernels[i] = new ClustreamKernel( instance, dim, timestamp, t, m );
+				kernels[i] = new ClustreamKernelPPSDM( instance, dim, timestamp, t, m );
 				return;
 			}
 		}
@@ -169,9 +172,11 @@ public class WithKmeansPPSDM extends AbstractClusterer {
 		minDistance = Double.MAX_VALUE;
 		for ( int i = 0; i < kernels.length; i++ ) {
 			double[] centerA = kernels[i].getCenterForReading();
+                        //Instance centerA = kernels[i].getCenterAsInstanceForReading();
 			for ( int j = i + 1; j < kernels.length; j++ ) {
 				double dist = distance( centerA, kernels[j].getCenterForReading() );
-				if ( dist < minDistance ) {
+				//double dist = distance(instance, kernels[i].getCenterAsInstanceForReading());
+                                if ( dist < minDistance ) {
 					minDistance = dist;
 					closestA = i;
 					closestB = j;
@@ -181,7 +186,7 @@ public class WithKmeansPPSDM extends AbstractClusterer {
 		assert (closestA != closestB);
 
 		kernels[closestA].add( kernels[closestB] );
-		kernels[closestB] = new ClustreamKernel( instance, dim, timestamp, t,  m );
+		kernels[closestB] = new ClustreamKernelPPSDM( instance, dim, timestamp, t,  m );
 	}
 	
 	@Override
@@ -190,9 +195,9 @@ public class WithKmeansPPSDM extends AbstractClusterer {
 			return new Clustering(new Cluster[0]);
 		}
 
-		ClustreamKernel[] result = new ClustreamKernel[kernels.length];
+		ClustreamKernelPPSDM[] result = new ClustreamKernelPPSDM[kernels.length];
 		for (int i = 0; i < result.length; i++) {
-			result[i] = new ClustreamKernel(kernels[i], t, m);
+			result[i] = new ClustreamKernelPPSDM(kernels[i], t, m);
 		}
 
 		return new Clustering(result);
@@ -203,11 +208,11 @@ public class WithKmeansPPSDM extends AbstractClusterer {
                 if (!initialized) {
                     return new Clustering(new Cluster[0]);
 		}
-		return kMeans_rand(kOption.getValue(), getMicroClusteringResult());
+		return (kMeans_rand(kOption.getValue(), getMicroClusteringResult())).get(1);
 	}
 	
 	public Clustering getClusteringResult(Clustering gtClustering) {
-		return kMeans_gta(kOption.getValue(), getMicroClusteringResult(), gtClustering);
+		return (kMeans_gta(kOption.getValue(), getMicroClusteringResult(), gtClustering)).get(1);
 	}
 
 	public String getName() {
@@ -229,10 +234,26 @@ public class WithKmeansPPSDM extends AbstractClusterer {
                     return distancePearson(pointA, pointB);
                 default:
                     return distanceEuclidean(pointA, pointB);
-            }
-		
-                
+            }   
 	}
+        
+//        /**
+//	 * Distance between two instances.
+//	 * 
+//	 * @param pointA
+//	 * @param pointB
+//	 * @return dist
+//	 */
+//	private static double distance(Instance pointA, Instance pointB) {
+//              switch (Configuration.DISTANCE_METRIC) {
+//                case EUCLIDEAN:
+//                    return distanceEuclidean(pointA, pointB);
+////                case PEARSON:
+////                    return distancePearson(pointA, pointB);
+//                default:
+//                    return distanceEuclidean(pointA, pointB);
+//            }  
+//	}
         
         private static double distanceEuclidean(double[] pointA, double [] pointB){
             double distance = 0.0;
@@ -242,6 +263,45 @@ public class WithKmeansPPSDM extends AbstractClusterer {
             }
             return Math.sqrt(distance);
         }
+        
+//        private static double distanceEuclidean(Instance pointA, Instance pointB){
+//            double distance = 0.0;
+//            int a = 0;
+//            int b = 0;
+//            int aCnt = pointA.numValues();
+//            int bCnt = pointB.numValues();
+//            while(a < aCnt || b < bCnt) {
+//                int indA = aCnt;
+//                if(a < aCnt){
+//                    indA = pointA.index(a);
+//                }
+//                int indB = bCnt;
+//                if(b < bCnt){
+//                    indB = pointB.index(b);
+//                }
+//                if(indA == indB){
+//                    double diff = pointA.valueSparse(a) - pointB.valueSparse(b); 
+//                    distance += diff * diff;
+//                    if(a < aCnt){a++;}
+//                    if(b < bCnt){b++;}
+//                }else if(indA < indB){
+//                    if(a < aCnt){
+//                        double diff = pointA.valueSparse(a) - 0; 
+//                        distance += diff * diff;
+//                        a++;
+//                    }
+//                }else{
+//                    if(b < bCnt){
+//                        double diff = pointB.valueSparse(b) - 0; 
+//                        distance += diff * diff;
+//                        b++;
+//                    }
+//                }
+//            }
+//            return Math.sqrt(distance);
+//        }
+            // in visited we have all items from one instance
+
         
         private static double distancePearson(double[] pointA, double [] pointB){
             PearsonsCorrelation pcor = new PearsonsCorrelation();
@@ -261,18 +321,16 @@ public class WithKmeansPPSDM extends AbstractClusterer {
 	 * @param data
 	 * @return (macro)clustering - CFClusters
 	 */
-	public static Clustering kMeans_gta(int k, Clustering clustering, Clustering gtClustering) {
-		
+        public  List<Clustering> kMeans_gta(int k, Clustering clustering, Clustering gtClustering) {
 		ArrayList<CFCluster> microclusters = new ArrayList<CFCluster>();
-        for (int i = 0; i < clustering.size(); i++) {
-            if (clustering.get(i) instanceof CFCluster) {
-                microclusters.add((CFCluster)clustering.get(i));
-            } else {
-                System.out.println("Unsupported Cluster Type:" + clustering.get(i).getClass() + ". Cluster needs to extend moa.cluster.CFCluster");
-            }
-        }
-        
-        int n = microclusters.size();
+                for (int i = 0; i < clustering.size(); i++) {
+                    if (clustering.get(i) instanceof CFCluster) {
+                        microclusters.add((CFCluster)clustering.get(i));
+                    } else {
+                        System.out.println("Unsupported Cluster Type:" + clustering.get(i).getClass() + ". Cluster needs to extend moa.cluster.CFCluster");
+                    }
+                }
+                int n = microclusters.size();
 		assert (k <= n);
 		
 		/* k-means */
@@ -289,7 +347,13 @@ public class WithKmeansPPSDM extends AbstractClusterer {
 			}
 		}
 		
-		return cleanUpKMeans(kMeans(k, centers, microclusters), microclusters);
+		//return cleanUpKMeans(kMeans(k, centers, microclusters), microclusters);
+                Clustering kMeansResult = kMeans(k, centers, microclusters);
+                Clustering cleanedKMeansResult = cleanUpKMeans(kMeansResult, microclusters);
+                List<Clustering> res = new ArrayList<>();
+                res.add(kMeansResult);
+                res.add(cleanedKMeansResult);
+                return res;
 	}
 	
 	/**
@@ -299,18 +363,18 @@ public class WithKmeansPPSDM extends AbstractClusterer {
 	 * @param data
 	 * @return (macro)clustering - CFClusters
 	 */
-	public static Clustering kMeans_rand(int k, Clustering clustering) {
+	public  List<Clustering> kMeans_rand(int k, Clustering clustering) {
 		
 		ArrayList<CFCluster> microclusters = new ArrayList<CFCluster>();
-        for (int i = 0; i < clustering.size(); i++) {
-            if (clustering.get(i) instanceof CFCluster) {
-                microclusters.add((CFCluster)clustering.get(i));
-            } else {
-                System.out.println("Unsupported Cluster Type:" + clustering.get(i).getClass() + ". Cluster needs to extend moa.cluster.CFCluster");
-            }
-        }
+                for (int i = 0; i < clustering.size(); i++) {
+                    if (clustering.get(i) instanceof CFCluster) {
+                        microclusters.add((CFCluster)clustering.get(i));
+                    } else {
+                        System.out.println("Unsupported Cluster Type:" + clustering.get(i).getClass() + ". Cluster needs to extend moa.cluster.CFCluster");
+                    }
+                }
         
-        int n = microclusters.size();
+                int n = microclusters.size();
 		assert (k <= n);
 		
 		/* k-means */
@@ -322,8 +386,14 @@ public class WithKmeansPPSDM extends AbstractClusterer {
 			centers[i] = new SphereClusterPPSDM(microclusters.get(rid).getCenter(), 0);
 		}
 		
-		return cleanUpKMeans(kMeans(k, centers, microclusters), microclusters);
-	}
+		//return cleanUpKMeans(kMeans(k, centers, microclusters), microclusters);
+                Clustering kMeansResult = kMeans(k, centers, microclusters);
+                Clustering cleanedKMeansResult = cleanUpKMeans(kMeansResult, microclusters);
+                List<Clustering> res = new ArrayList<>();
+                res.add(kMeansResult);
+                res.add(cleanedKMeansResult);
+                return res;
+        }
 	
 	/**
 	 * (The Actual Algorithm) k-means of (micro)clusters, with specified initialization points.
@@ -364,6 +434,7 @@ public class WithKmeansPPSDM extends AbstractClusterer {
 			SphereClusterPPSDM[] newCenters = new SphereClusterPPSDM[centers.length];
 			for (int i = 0; i < k; i++) {
 				newCenters[i] = calculateCenter(clustering.get(i), dimensions);
+                                newCenters[i].setId(i);
 				clustering.get(i).clear();
 			}
 			
@@ -393,7 +464,7 @@ public class WithKmeansPPSDM extends AbstractClusterer {
 	 * @param microclusters
 	 * @return
 	 */
-	protected static Clustering cleanUpKMeans(Clustering kMeansResult, ArrayList<CFCluster> microclusters) {
+	public static Clustering cleanUpKMeans(Clustering kMeansResult, ArrayList<CFCluster> microclusters) {
 		/* Convert k-means result to CFClusters */
 		int k = kMeansResult.size();
 		CFCluster[] converted = new CFCluster[k];
@@ -504,4 +575,8 @@ public class WithKmeansPPSDM extends AbstractClusterer {
 	public void getModelDescription(StringBuilder out, int indent) {
 		throw new UnsupportedOperationException("Not supported yet.");
 	}
+
+    public void trainOnSparseInstance(Map<Integer, Double> umInstance) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
 }

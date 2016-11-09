@@ -43,7 +43,7 @@ public class GridSearchEvaluator extends MainTask {
         this.fromid = fromid;
     }
     
-    public void evaluate(List<Parameter> params){
+    private void evaluate(List<Parameter> params){
         gpLearnEvaluateTask = new GridSearchLearnEvaluatePPSDMTask(id, fromid, params,
                 lastparams, pathToStream, pathToSummaryOutputFile, pathToOutputFile,
                 grouping, faster, fasterWithoutGrouping); 
@@ -57,8 +57,7 @@ public class GridSearchEvaluator extends MainTask {
         System.gc();
     }
     
-    public void startGridEvaluation(List<Parameter> params, List<Parameter> preparedParameters){
-       
+    private void startGridEvaluation(List<Parameter> params, List<Parameter> preparedParameters){
         if(params.isEmpty()){
             this.evaluate(preparedParameters);
         }else{
@@ -71,11 +70,13 @@ public class GridSearchEvaluator extends MainTask {
                 copyParams.add(p2);
                 this.startGridEvaluation(origParamsCopy, copyParams);
             }else{
-                double[] b = p.getBoundaries();
-                for(double i = b[0]; i <= b[1]; i+= b[2]){  
+                //double[] b = p.getBoundaries();
+                Iterator<Double> it = p.getPossibleValues().iterator();
+                //for(double i = b[0]; i <= b[1]; i+= b[2]){  
+                while(it.hasNext()){  
                     origParamsCopy = deepCopy(params);
                     Parameter p2 = origParamsCopy.remove(0);
-                    p2.setValue(i);
+                    p2.setValue(it.next());
                     List<Parameter> copyParams = deepCopy(preparedParameters);
                     copyParams.add(p2);
                     this.startGridEvaluation(origParamsCopy, copyParams);
@@ -105,7 +106,7 @@ public class GridSearchEvaluator extends MainTask {
     
     
     private List<Parameter> deepCopy(List<Parameter> orig){
-        List<Parameter> copy = new ArrayList<Parameter>(); 
+        List<Parameter> copy = new ArrayList<>(); 
         Iterator<Parameter> iterator = orig.iterator(); 
         while(iterator.hasNext()){ 
             try { 
@@ -191,10 +192,23 @@ public class GridSearchEvaluator extends MainTask {
             String inputSessionFile = fileReader.readLine().split(",")[1].trim();
             String outputToDirectory = fileReader.readLine().split(",")[1].trim();
             int fromid = Integer.parseInt(fileReader.readLine().split(",")[1].trim());
+            // READ IN PARAMETERS 
             for(String line = fileReader.readLine(); line != null; line = fileReader.readLine()) {
                 String[] row = line.split(",");
-                params.add(new Parameter(0.0, Double.parseDouble(row[1].trim()), 
-                           Double.parseDouble(row[2].trim()), Double.parseDouble(row[3].trim())));   
+                double value = Double.parseDouble(row[1].trim());
+                // LIST OF POSSIBLE VALUES
+                Parameter p;
+                if(value == -1){
+                    p = new Parameter(value);
+                    for(int i = 2; i < row.length; i++){
+                        p.addPossibleValue(Double.parseDouble(row[i].trim()));
+                    }
+                }else {
+                    //boundaries
+                    p = new Parameter(0.0, value,Double.parseDouble(row[2].trim()), 
+                            Double.parseDouble(row[3].trim()));   
+                }
+                params.add(p);
             }
             writeHeader(outputToDirectory + "summary_results.csv");
             GridSearchEvaluator evaluator = new GridSearchEvaluator(fromid);
@@ -220,7 +234,7 @@ public class GridSearchEvaluator extends MainTask {
             if(args.length > 0){
                 fileStream = new FileInputStream(args[0]);
             }else{
-                fileStream = new FileInputStream("g:\\workspace_DP2\\results_grid\\config\\config1_params_INIT.csv");
+                fileStream = new FileInputStream("g:\\workspace_DP2\\results_grid\\config\\config1_params_INIT_cti.csv");
             }
             
             fileReader = new BufferedReader(new InputStreamReader(fileStream));

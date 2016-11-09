@@ -1,4 +1,4 @@
-package CharmBitsetOrig;
+package moa.core.PPSDM.charm;
 
 import com.rits.cloning.Cloner;
 import java.io.Serializable;
@@ -45,16 +45,16 @@ public class Context implements Serializable{
         private int maxItemId = 0;
 
 	public void addItemset(Itemset itemset) {
-                Cloner cloner = new Cloner();
-                Itemset cloned = null;
-                try {
-                    cloned = (Itemset) itemset.clone();
-                } catch (CloneNotSupportedException ex) {
-                    Logger.getLogger(Context.class.getName()).log(Level.SEVERE, null, ex);
-                }
-		objects.add(cloned);
-		attributes.addAll(cloner.deepClone(cloned.getItems()));
-                for(Integer item : cloned.getItems())
+//                Cloner cloner = new Cloner();
+//                Itemset cloned = null;
+//                try {
+//                    cloned = (Itemset) itemset.clone();
+//                } catch (CloneNotSupportedException ex) {
+//                    Logger.getLogger(Context.class.getName()).log(Level.SEVERE, null, ex);
+//                }
+		objects.add(itemset);
+		attributes.addAll(itemset.getItems());
+                for(Integer item : itemset.getItems())
                     if (item > maxItemId)
                             maxItemId = item;
 	}
@@ -79,13 +79,15 @@ public class Context implements Serializable{
 	}
 
 	public List<Itemset> getObjects() {
-            Cloner cloner = new Cloner();
-            return cloner.deepClone(objects);
+//            Cloner cloner = new Cloner();
+//            return cloner.deepClone(objects);
+            return objects;
 	}
 
 	public Set<Integer> getAttributes() {
-            Cloner cloner = new Cloner();
-            return cloner.deepClone(attributes);
+//            Cloner cloner = new Cloner();
+//            return cloner.deepClone(attributes);
+            return attributes;
 	}
         
         public int getMaxItemId(){

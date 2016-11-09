@@ -21,7 +21,6 @@
 package moa.core.PPSDM;
 
 import com.yahoo.labs.samoa.instances.Instance;
-import moa.core.PPSDM.SegmentPPSDM;
 
 /*
    I Made little change to addInstance method (Tomas Chovanak).
@@ -36,10 +35,14 @@ public class FixedLengthWindowManagerPPSDM extends SlidingWindowManagerPPSDM {
      * Default constructor. Creates a new Fixed Lenght Window Manager; it will manage
      * segments of length equal to the passed value.
      * 
-     * @param segmentLength lenght of each segment
+     * @param minSupport
+     * @param maxPatternLength
+     * @param segmentLength length of each segment
+     * @param windowSize
      */
-    public FixedLengthWindowManagerPPSDM(double minSupport, int maxPatternLength, int segmentLength) {
-        super(minSupport, maxPatternLength);
+    public FixedLengthWindowManagerPPSDM(double minSupport, int maxPatternLength, 
+            int segmentLength, int windowSize) {
+        super(minSupport, maxPatternLength, windowSize);
         this.segmentLenght = segmentLength;
     }
 

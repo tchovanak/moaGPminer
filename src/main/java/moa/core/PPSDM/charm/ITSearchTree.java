@@ -1,4 +1,4 @@
-package CharmBitsetOrig;
+package moa.core.PPSDM.charm;
 
 /**
  * This class represents an ITSearchTree

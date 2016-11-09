@@ -19,14 +19,12 @@
  */
 package moa.core;
 
-import moa.utils.PPSDM.UtilitiesPPSDM;
+import moa.core.PPSDM.utils.UtilitiesPPSDM;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import moa.learners.PersonalizedIncMine;
+
 /*
     (Tomas Chovanak) No change
 */
@@ -38,22 +36,24 @@ public class SemiFCI implements Comparable<SemiFCI>,Serializable {
     private boolean updated;
     private SemiFCIid id;
     private int k;
+    private int windowSize;
 
     /**
      * Default constructor. Creates a new semiFCI with the passed itemset and puts 
      * the current support at the head of the support vector.
-     * @param item itemset of the semiFCI
+     * @param itemset itemset of the semiFCI
      * @param currentSupport current support 
+     * @param windowSize size of window
      */
-    public SemiFCI(List<Integer> itemset, int currentSupport) {
+    public SemiFCI(List<Integer> itemset, int currentSupport, int windowSize) {
         items = new ArrayList<>();
         for(Integer i : itemset){
             items.add(i);
         }
         Collections.sort(items);
-        
+        this.windowSize = windowSize;
         this.id = new SemiFCIid(items.size(), -1);
-        this.supports = new int[PersonalizedIncMine.windowSize];
+        this.supports = new int[windowSize];
         this.updated = true; //changed! newly added semiFCI are updated!!
 
         //append the current support at the beginning of the support vector
@@ -67,7 +67,7 @@ public class SemiFCI implements Comparable<SemiFCI>,Serializable {
         for(Integer i: items){
             itemsCloned.add(i);
         }
-        SemiFCI clone = new SemiFCI(itemsCloned, this.supports[0]);
+        SemiFCI clone = new SemiFCI(itemsCloned, this.supports[0],windowSize);
         clone.setId((SemiFCIid) this.id.clone());
         int[] cloneSupports = this.supports.clone();
         boolean cloneUpdated = this.updated;
@@ -172,21 +172,7 @@ public class SemiFCI implements Comparable<SemiFCI>,Serializable {
      * @return the id
      */
     public SemiFCIid getId() {
-        try {
-            return (SemiFCIid) id.clone();
-        } catch (CloneNotSupportedException ex) {
-            Logger.getLogger(SemiFCI.class.getName()).log(Level.SEVERE, null, ex);
-            return null;
-        }
-    }
-
-     /**
-     * @return the id
-     */
-    public SemiFCIid getIdOriginal() {
-        
         return id;
-        
     }
     
     /**
@@ -226,12 +212,9 @@ public class SemiFCI implements Comparable<SemiFCI>,Serializable {
      * Push a support value in the head of the support vector
      * @param supValue value to be pushed
      */
-
-    public void pushSupport(int supValue) {
-        
+    public void pushSupport(int supValue) {    
         for(int i = supports.length-1; i > 0; i--)
             supports[i] = supports[i-1];
-
         supports[0] = supValue;
         setUpdated(true);
     }
@@ -285,11 +268,8 @@ public class SemiFCI implements Comparable<SemiFCI>,Serializable {
     public void setK(int k) {
         this.k = k;
     }
-
-   
-
-   
-    
     
     
 }
+
+

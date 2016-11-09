@@ -275,8 +275,4 @@ public class Clustering extends AbstractMOAObject{
         return maxInclusion;
     }
 
-
-
-
-
 }

@@ -19,12 +19,12 @@
  */
 
 package moa.core;
-import moa.utils.PPSDM.UtilitiesPPSDM;
 import java.io.Serializable;
 import java.util.*;
+import moa.core.PPSDM.utils.UtilitiesPPSDM;
 
 /*
-    (Tomas Chovanak) No change
+    (Tomas Chovanak) no change
 */
 public class InvertedFCIIndex implements Serializable {
     
@@ -55,17 +55,7 @@ public class InvertedFCIIndex implements Serializable {
         }
         
         public void removeID(int fciSize, Integer id) {
-            
-            if(map.containsKey(fciSize)){
-                map.get(fciSize).remove(id);
-                if(map.get(fciSize).isEmpty()){
-                    map.remove(fciSize);
-                    sortCheck.remove(fciSize);
-                }
-            }
-               
-            
-            
+            map.get(fciSize).remove(id);
         }
         
         public List<Integer> getIDArray(int fciSize) {            
@@ -73,10 +63,10 @@ public class InvertedFCIIndex implements Serializable {
                 Collections.sort(map.get(fciSize));
                 sortCheck.put(fciSize, Boolean.TRUE);
             }
-           
-            if(map.containsKey(fciSize)){
-                 return map.get(fciSize);
-            }
+            
+            if(map.containsKey(fciSize))                
+                return map.get(fciSize);
+            
             return null;
         }
 
@@ -95,9 +85,7 @@ public class InvertedFCIIndex implements Serializable {
         }
     }
 
-    /*For each semiFCI X = {x1, . . . , xn} in L, its ID is stored in the size-n IDarray
-        of each item xi
-        in the Item Array, 0 ≤ i ≤ n.*/
+    
     private Map<Integer, IDArrayList> invertedIndex;
     //stores newly added itemsets. we don't let them to be SFS of any semiFCI
     private Map<Integer, ArrayList<Integer>> newItemsets;
@@ -106,15 +94,15 @@ public class InvertedFCIIndex implements Serializable {
      * Default constructor. Creates a new empty instance of Inverted Index.
      */
     public InvertedFCIIndex() {        
-        invertedIndex = new HashMap<>();
-        newItemsets = new HashMap<>();
+        invertedIndex = new HashMap<Integer, IDArrayList>();
+        newItemsets = new HashMap<Integer, ArrayList<Integer>>();
     }
 
     /**
      * Adds a new item with an empty IDArrayList.
      * @param item item to be added
      */
-    public void addEmptyItem(Integer item) {
+    public void addEmptyItem(Integer item) {        
         invertedIndex.put(item, new IDArrayList());
     }
 
@@ -144,25 +132,11 @@ public class InvertedFCIIndex implements Serializable {
      * @param itemset semiFCI to be removed.
      */
     public void removeSemiFCI(SemiFCI itemset) {
-        for(Integer item:itemset.getItems()) {
-            if(invertedIndex.containsKey(item)){
-                IDArrayList list = invertedIndex.get(item);
-                list.removeID(itemset.getId().getDimension(), itemset.getId().getPosition());
-                if(list.map.isEmpty()){
-                    invertedIndex.remove(item);
-                }
-                
-            }   
-        }
-    }
-    
-    
-    /*
-        Clears null places in hashmap
         
-    */
-    public void clearIndex(){
-        this.invertedIndex.clear();
+        for(Integer item:itemset.getItems()) {
+            if(invertedIndex.containsKey(item))
+                invertedIndex.get(item).removeID(itemset.getId().getDimension(), itemset.getId().getPosition());
+        }
     }
 
     /**
@@ -211,10 +185,6 @@ public class InvertedFCIIndex implements Serializable {
             }
         }
         
-//        List<Integer> retSet = new ArrayList<Integer>();
-//        for(Integer i: intSet){
-//            retSet.add(i);
-//        }
         return intSet;
         
     }

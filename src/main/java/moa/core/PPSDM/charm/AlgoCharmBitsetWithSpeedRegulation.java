@@ -1,9 +1,10 @@
-package CharmBitsetOrig;
+package moa.core.PPSDM.charm;
 
 import java.io.IOException;
 import java.util.Map.Entry;
 import java.util.*;
 import moa.core.PPSDM.Configuration;
+import moa.core.PPSDM.utils.UtilitiesPPSDM;
 
 /**
  * 
@@ -34,6 +35,8 @@ import moa.core.PPSDM.Configuration;
  * Changes: Tomas Chovanak
  * I added restriction for maximal time permitted to look for closed itemsets. 
  * This restriction is part of speed regulation mechanism of MOA PPSDM module.
+ *  Changed sort strategy from ascending with support to descending to support to 
+ *  more quickly discover patterns with greater support.
  * 
  */
 public class AlgoCharmBitsetWithSpeedRegulation {
@@ -43,7 +46,7 @@ public class AlgoCharmBitsetWithSpeedRegulation {
 	private long endTimestamp; // for stats
 	private int minsupRelative;
 
-	Map<Integer, BitSet> mapItemTIDS = new HashMap<Integer, BitSet>();
+	Map<Integer, BitSet> mapItemTIDS = new HashMap<>();
 
 	int tidcount;
 	private int itemsetCount;
@@ -51,17 +54,15 @@ public class AlgoCharmBitsetWithSpeedRegulation {
 	// for optimization with a hashTable
 	private HashTable hash;
 
-	public AlgoCharmBitsetWithSpeedRegulation() {
-	}
+	public AlgoCharmBitsetWithSpeedRegulation() {}
 
 	/**
-	 * This algorithm has two parameters
-	 * 
-	 * @param minsupp
-	 *            the minimum support
-	 * @param itemCount
-	 * @return
-	 * @throws IOException
+            * This algorithm has two parameters
+            * 
+            * @param context
+            * @param minsup
+            * @param hashTableSize
+            * @return
 	 */
 	public Itemsets runAlgorithm(Context context, double minsup,
 			int hashTableSize) {
@@ -112,8 +113,9 @@ public class AlgoCharmBitsetWithSpeedRegulation {
 		sortChildren(root);
 
 		while (root.getChildNodes().size() > 0) {
-                    if(hash.count > Configuration.MAX_FCI_SET_COUNT 
-                            || this.getExecTime() > Configuration.MAX_UPDATE_TIME){
+                    // SPEED REGULATION
+                    double progress = UtilitiesPPSDM.getUpdateProgress();
+                    if(progress >= 0.5){
                         System.out.println("OUT OF TIME AND SIZE");
                         break;
                     }
@@ -146,7 +148,6 @@ public class AlgoCharmBitsetWithSpeedRegulation {
 	}
 
 	private void extend(ITNode currNode)  {
-            
 		// loop over the brothers
 		int i = 0;
 		while (i < currNode.getParent().getChildNodes().size()) {
@@ -192,8 +193,10 @@ public class AlgoCharmBitsetWithSpeedRegulation {
 		sortChildren(currNode);
 
 		while (currNode.getChildNodes().size() > 0) {
+                    // SPEED REGULATION
+                    double progress = UtilitiesPPSDM.getUpdateProgress();
                     if(hash.count > Configuration.MAX_FCI_SET_COUNT 
-                            || this.getExecTime() > Configuration.MAX_UPDATE_TIME){
+                            || progress >= 0.5){
                         System.out.println("OUT OF TIME AND SIZE");
                         break;
                     }
@@ -249,15 +252,22 @@ public class AlgoCharmBitsetWithSpeedRegulation {
                     hash.put(node.itemsetObject);
 		}
 	}
-
+        
+        /*
+            (Tomas Chovanak) reversed ordering descending by support
+        */
 	private void sortChildren(ITNode node) {
 		// sort children of the node according to the support.
 		Collections.sort(node.getChildNodes(), new Comparator<ITNode>() {
 			// Returns a negative integer, zero, or a positive integer as
 			// the first argument is less than, equal to, or greater than the
 			// second.
-			public int compare(ITNode o1, ITNode o2) {
-				return o1.getTidset().size() - o2.getTidset().size();
+//			public int compare(ITNode o1, ITNode o2) {
+//				return o1.getTidset().size() - o2.getTidset().size();
+//			}
+                        // REVERSED
+                        public int compare(ITNode o1, ITNode o2) {
+                            return o2.getTidset().size() - o1.getTidset().size();
 			}
 		});
 	}

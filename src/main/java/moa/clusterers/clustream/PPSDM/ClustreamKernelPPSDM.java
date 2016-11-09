@@ -1,5 +1,5 @@
 /*
- *    ClustreamKernel.java
+ *    ClustreamKernelPPSDM.java
  *    Copyright (C) 2010 RWTH Aachen University, Germany
  *    @author Jansen (moa@cs.rwth-aachen.de)
  *
@@ -17,14 +17,17 @@
  *    
  *    
  */
-package moa.clusterers.clustream;
+package moa.clusterers.clustream.PPSDM;
 
 import java.util.ArrayList;
 import java.util.Random;
 import moa.cluster.CFCluster;
 import com.yahoo.labs.samoa.instances.Instance;
+import com.yahoo.labs.samoa.instances.SparseInstance;
+import java.util.LinkedList;
+import java.util.List;
 
-public class ClustreamKernel extends CFCluster {
+public class ClustreamKernelPPSDM extends CFCluster {
 	private static final long serialVersionUID = 1L;
 
 	private final static double EPSILON = 0.00005;
@@ -37,7 +40,7 @@ public class ClustreamKernel extends CFCluster {
     double t;
 
 
-    public ClustreamKernel( Instance instance, int dimensions, long timestamp , double t, int m) {
+    public ClustreamKernelPPSDM( Instance instance, int dimensions, long timestamp , double t, int m) {
         super(instance, dimensions);
         this.t = t;
         this.m = m;
@@ -45,7 +48,7 @@ public class ClustreamKernel extends CFCluster {
 		this.SST = timestamp*timestamp;
     }
 
-    public ClustreamKernel( ClustreamKernel cluster, double t, int m ) {
+    public ClustreamKernelPPSDM( ClustreamKernelPPSDM cluster, double t, int m ) {
         super(cluster);
         this.t = t;
         this.m = m;
@@ -66,7 +69,7 @@ public class ClustreamKernel extends CFCluster {
 
     @Override
     public void add( CFCluster other2 ) {
-        ClustreamKernel other = (ClustreamKernel) other2;
+        ClustreamKernelPPSDM other = (ClustreamKernelPPSDM) other2;
 		assert( other.LS.length == this.LS.length );
 		this.N += other.N;
 		this.LST += other.LST;
@@ -141,10 +144,32 @@ public class ClustreamKernel extends CFCluster {
       * Author: Tomas Chovanak... if kernel is used only for reading it doesn't need to be copied
      * @return this kernels' center
      */
-   
     public double[] getCenterForReading() {
         assert (!this.isEmpty());
         return this.LS;
+    }
+    
+    /**
+      * Author: Tomas Chovanak... if kernel is used only for reading it doesn't need to be copied
+     * @return this kernels' center
+     */
+    public Instance getCenterAsInstanceForReading() {
+        assert (!this.isEmpty());
+        List<Integer> unqIndices = new ArrayList<>();
+        List<Double> unqValues = new ArrayList<>();
+        for(int i = 0; i < this.LS.length; i++){
+            if(this.LS[i] != 0){
+                unqIndices.add(i);
+                unqValues.add(this.LS[i]);
+            }
+        }
+        int size = unqIndices.size();
+        int[] indicesArray = new int[size];
+        for(int i = 0; i < size; i++) indicesArray[i] = unqIndices.get(i); 
+        double[] valuesArray = new double[size];
+        for(int i = 0; i < size; i++) valuesArray[i] = unqValues.get(i);
+        Instance sparseInst = new SparseInstance(1.0, valuesArray, indicesArray,this.LS.length);
+        return sparseInst;
     }
 
     /**

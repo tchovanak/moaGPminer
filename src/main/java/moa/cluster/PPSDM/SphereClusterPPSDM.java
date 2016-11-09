@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Random;
 import com.yahoo.labs.samoa.instances.DenseInstance;
 import com.yahoo.labs.samoa.instances.Instance;
+import com.yahoo.labs.samoa.instances.SparseInstance;
 import moa.cluster.Cluster;
 import moa.cluster.Miniball;
 import moa.core.PPSDM.Configuration;
@@ -48,6 +49,7 @@ public class SphereClusterPPSDM extends Cluster {
 	private double[] center;
 	private double radius;
 	private double weight;
+        private Instance instanceCenter;
 
 
 	public SphereClusterPPSDM(double[] center, double radius) {
@@ -60,6 +62,7 @@ public class SphereClusterPPSDM extends Cluster {
 	public SphereClusterPPSDM( double[] center, double radius, double weightedSize) {
 		this();
 		this.center = center;
+                this.createInstanceCenter(center);
 		this.radius = radius;
 		this.weight = weightedSize;
 	}
@@ -74,6 +77,7 @@ public class SphereClusterPPSDM extends Cluster {
 		for (int i = 0; i < center.length; i++) {
 			this.center[i] = (random.nextDouble() * interval) + radius;
 		}
+                this.createInstanceCenter(center);
 		this.weight = 0.0;
 	}
 
@@ -94,9 +98,32 @@ public class SphereClusterPPSDM extends Cluster {
 
 		mb.build();
 		center = mb.center();
+                this.createInstanceCenter(center);
 		radius = mb.radius();
 		mb.clear();
 	}
+        
+        /*
+            Author > Tomas Chovanak
+        */
+        private void createInstanceCenter(double[] center) {
+            List<Integer> unqIndices = new ArrayList<>();
+            List<Double> unqValues = new ArrayList<>();
+            for(int i = 0; i < center.length; i++){
+                if(center[i] != 0){
+                    unqIndices.add(i);
+                    unqValues.add(center[i]);
+                }
+            }
+            int size = unqIndices.size();
+            int[] indicesArray = new int[size];
+            for(int i = 0; i < size; i++) indicesArray[i] = unqIndices.get(i); 
+            double[] valuesArray = new double[size];
+            for(int i = 0; i < size; i++) valuesArray[i] = unqValues.get(i);
+            this.instanceCenter = new SparseInstance(1.0, valuesArray, indicesArray,center.length);
+           
+           
+        }
 
 
 	/**
@@ -111,8 +138,7 @@ public class SphereClusterPPSDM extends Cluster {
 	 */
 
 	public double overlapRadiusDegree(SphereClusterPPSDM other) {
-
-
+            
 		double[] center0 = getCenter();
 		double radius0 = getRadius();
 
@@ -221,6 +247,10 @@ public class SphereClusterPPSDM extends Cluster {
 		System.arraycopy(center, 0, copy, 0, center.length);
 		return copy;
 	}
+        
+        public Instance getCenterAsInstance() {
+		return this.instanceCenter;
+	}
 
 	public void setCenter(double[] center) {
 		this.center = center;
@@ -245,17 +275,16 @@ public class SphereClusterPPSDM extends Cluster {
 
 	@Override
 	public double getInclusionProbability(Instance instance) {
-            double centerDistance = getCenterDistance(instance);
-            double radius = getRadius();
-		if (getCenterDistance(instance) <= getRadius()) {
-			return 1.0;
-		}
-		return 0.0;
+            if (getCenterDistance(instance) <= getRadius()) {
+                    return 1.0;
+            }
+            return 0.0;
 	}
 
 	public double getCenterDistance(Instance instance) {
             switch (Configuration.DISTANCE_METRIC) {
                 case EUCLIDEAN:
+                    //return getCenterDistanceWithInstanceEuclidean(instance);
                     return getCenterDistanceEuclidean(instance);
                 case PEARSON:
                     return getCenterDistancePearson(instance);
@@ -276,6 +305,47 @@ public class SphereClusterPPSDM extends Cluster {
             return Math.sqrt(distance);
         }
         
+        /*
+            (Experimental)
+        */
+        public double getCenterDistanceWithInstanceEuclidean(Instance pointB){
+            Instance pointA = this.instanceCenter;
+            double distance = 0.0;
+            int a = 0;
+            int b = 0;
+            int aCnt = pointA.numValues();
+            int bCnt = pointB.numValues();
+            while(a < aCnt || b < bCnt) {
+                int indA = aCnt;
+                if(a < aCnt){
+                    indA = pointA.index(a);
+                }
+                int indB = bCnt;
+                if(b < bCnt){
+                    indB = pointB.index(b);
+                }
+                if(indA == indB){
+                    double diff = pointA.valueSparse(a) - pointB.valueSparse(b); 
+                    distance += diff * diff;
+                    if(a < aCnt){a++;}
+                    if(b < bCnt){b++;}
+                }else if(indA < indB){
+                    if(a < aCnt){
+                        double diff = pointA.valueSparse(a) - 0; 
+                        distance += diff * diff;
+                        a++;
+                    }
+                }else{
+                    if(b < bCnt){
+                        double diff = pointB.valueSparse(b) - 0; 
+                        distance += diff * diff;
+                        b++;
+                    }
+                }
+            }
+            return Math.sqrt(distance);
+        }
+        
         public double getCenterDistancePearson(Instance instance){
             PearsonsCorrelation pcor = new PearsonsCorrelation();
             double[] center = getCenter();
@@ -287,6 +357,7 @@ public class SphereClusterPPSDM extends Cluster {
                 return correlation + 1;
             }
         }
+        
 
 	public double getCenterDistance(SphereClusterPPSDM other) {
 		return distance(getCenter(), other.getCenter());
@@ -426,6 +497,8 @@ public class SphereClusterPPSDM extends Cluster {
 		infoTitle.add("Radius");
 		infoValue.add(Double.toString(getRadius()));
 	}
+
+   
 
 
 }

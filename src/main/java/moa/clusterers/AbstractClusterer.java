@@ -131,6 +131,13 @@ public abstract class AbstractClusterer extends AbstractOptionHandler
 			trainOnInstanceImpl(inst);
 		}
 	}
+        
+//        public void trainOnSparseInstance(Map<Integer,Double> inst) {
+//		if (inst.weight() > 0.0) {
+//			this.trainingWeightSeenByModel += inst.weight();
+//			trainOnInstanceImpl(inst);
+//		}
+//	}
 
 	public Measurement[] getModelMeasurements() {
 		List<Measurement> measurementList = new LinkedList<Measurement>();
