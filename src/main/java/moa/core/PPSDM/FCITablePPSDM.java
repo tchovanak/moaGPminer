@@ -227,7 +227,7 @@ public class FCITablePPSDM implements Iterable<SemiFCI>, Serializable  {
     }
     
     public List<FrequentItemset> getSemiFcis() {
-        return fcis;
+        return semifcis;
     }
     
     public void computeFis(double minSupport, int segmentLength) {
@@ -238,7 +238,7 @@ public class FCITablePPSDM implements Iterable<SemiFCI>, Serializable  {
         this.fcis = FrequentItemset.getFCIset(this.iterator(), minSupport, segmentLength);
     }
     
-    public void computeSemiFcis(double minSupport, int segmentLength) {
+    public void computeSemiFcis(int segmentLength) {
         this.semifcis = FrequentItemset.getFCIset(this.iterator(), 0, segmentLength);
     }
 

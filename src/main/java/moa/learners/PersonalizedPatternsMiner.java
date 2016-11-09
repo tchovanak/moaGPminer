@@ -288,8 +288,7 @@ public class PersonalizedPatternsMiner extends AbstractLearner implements Observ
                 }
                 FciValue fciVal = new FciValue();
                 fciVal.setItems(fi.getItems());
-                fciVal.computeValue(hitsVal, fi.getSupportDouble(),
-                        0, minSupportOption.getValue());
+                fciVal.computeValue(hitsVal, fi.getSupportDouble());
                 mapFciWeight.add(fciVal);
                 mapFciWeightGlobal.add(fciVal);
             }
@@ -321,8 +320,7 @@ public class PersonalizedPatternsMiner extends AbstractLearner implements Observ
                         FciValue fciVal = new FciValue();
                         fciVal.setItems(fi.getItems());
                         fciVal.setDistance(distance);
-                        fciVal.computeValue(hitsVal, fi.getSupportDouble(), 
-                                0, minSupportOption.getValue());
+                        fciVal.computeValue(hitsVal, fi.getSupportDouble());
                         mapFciWeight.add(fciVal);
                         mapFciWeightGroup.add(fciVal);
                     }

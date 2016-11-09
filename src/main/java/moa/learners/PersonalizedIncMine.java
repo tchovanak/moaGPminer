@@ -321,8 +321,7 @@ public class PersonalizedIncMine extends AbstractLearner implements Observer {
             fciTable.clearTable();
             System.gc();
         }
-        fciTable.computeSemiFcis(this.minSupportOption, 
-                this.fixedSegmentLengthOption);
+        fciTable.computeSemiFcis(this.fixedSegmentLengthOption);
         System.out.println("Update done in " + this.getUpdateTime()/1e6 + " ms.");
         System.out.println(fciTable.size() + " SemiFCIs actually stored\n");
         

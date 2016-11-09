@@ -234,7 +234,7 @@ public class GridSearchEvaluator extends MainTask {
             if(args.length > 0){
                 fileStream = new FileInputStream(args[0]);
             }else{
-                fileStream = new FileInputStream("g:\\workspace_DP2\\results_grid\\config\\config1_params_INIT_cti.csv");
+                fileStream = new FileInputStream("g:\\workspace_DP2\\results_grid\\config\\config1_params_INIT.csv");
             }
             
             fileReader = new BufferedReader(new InputStreamReader(fileStream));

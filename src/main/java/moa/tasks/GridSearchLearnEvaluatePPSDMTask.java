@@ -76,68 +76,19 @@ public class GridSearchLearnEvaluatePPSDMTask implements Task {
         if(fromid >= id){
             return null;
         }
-//        /*
-//            if there was raised flag in previous evaluation that parameter configuration
-//            is too slow, then this condition is used to check if any of desired 
-//            parameters that are possibly speeding up alghoritm were changed, if so 
-//            then new configuration is accepted as possibly faster, thus tried.
-//        */
-//        if(this.fasterWithoutGrouping){ 
-//             if(checkLastParamsForFasterWithoutGroupingConfiguration(params)){ // params werent changed to better
-//                fasterWithoutGrouping = true;
-//                return null;
-//            }else{
-//                fasterWithoutGrouping = false;
-//            }
-//        }
-//        if(faster){
-//            if(checkLastParamsForFasterConfiguration(params)){ // params werent changed to better
-//                faster = true;
-//                return null;
-//            }else{
-//                faster = false;
-//            }
-//        }
-//        boolean repeatWithGrouping = false;
-//        // some of not grouping params was changed so try with and without grouping, 
-//        // if other params are changed only try with grouping
-//        if(checkLastParamsForNotGroupingChange(params)){ 
-//            repeatWithGrouping = true;
-//            grouping = false;
-//        }else{
-//            grouping = true;
-//        }
-        
+
         // initialize and configure learner
         PersonalizedPatternsMiner learner = new PersonalizedPatternsMiner();
-//        for(int i = 0; i < 2; i++){
+
             grouping = true;
             boolean valid = configureLearnerWithParams(learner, params);
             // CHECK IF segment legnth and support is valid:
             if(!valid){
                 return null;
             }
-            
-           
-//            double originalUPDATETIME = 
-//                    (learner.fixedSegmentLengthOption.getValue() 
-//                    * (learner.minSupportOption.getValue()) * 100 ) / Configuration.SPEED_PARAM;
-            //Configuration.MAX_UPDATE_TIME = originalUPDATETIME;
+
             updateLastParams(learner);
             // fromid is used to allow user restart evaluation from different point anytime
-            
-//            if(i == 1 && fromid >= id){
-//                return null;
-//            }
-//            // fromid is used to allow user restart evaluation from different point anytime
-//            if(i == 0 && fromid >= id && !repeatWithGrouping){
-//                return null;
-//            }
-//            if(i == 0 && fromid >= id && repeatWithGrouping){
-//                id++;
-//                grouping = true;
-//                continue;
-//            }
             
             this.stream = new SessionsFileStream(this.pathToStream);
             writeConfigurationToFile(this.pathToSummaryOutputFile, learner);
@@ -161,11 +112,9 @@ public class GridSearchLearnEvaluatePPSDMTask implements Task {
                 }
                 Example trainInst = stream.nextInstance();
                 /// FOR TESTING LONG TIME SURVIVING OF APPLICATION
-//                if(!stream.hasMoreInstances()){
-//                    stream.restart();
-//                }
+
                 double[] speedResults = UtilitiesPPSDM.getActualTransSec();
-                //System.out.println(speedResults[0]);
+
                 Example testInst = (Example) trainInst.copy();
                 if(Configuration.TRANSACTION_COUNTER > Configuration.START_EVALUATING_FROM){
                     RecommendationResults results = learner.getRecommendationsForInstance(testInst);
@@ -175,47 +124,14 @@ public class GridSearchLearnEvaluatePPSDMTask implements Task {
                 }
                 
                 learner.trainOnInstance(trainInst); // this will start training proces - it means first update clustering and then find frequent patterns
-//                long end = TimingUtils.getNanoCPUTimeOfCurrentThread();
-//                //long end = System.nanoTime();
-//                double tp =((double)(end - Configuration.UPDATE_START_TIME) / 1e9);
-//                transsec = Configuration.TRANSACTION_COUNTER/tp;
-                // SPEED CONTROL PART
-                //if(transsec < Configuration.SPEED_PARAM * 10){
-                    //Configuration.MAX_FCI_SET_COUNT = originalFCISETCOUNT * (transsec/((Configuration.DESIRED_TRANSSEC)*2));
-                //if(Configuration.TRANSACTION_COUNTER > 2 * learner.fixedSegmentLengthOption.getValue()){
-//                    double diff = ((transsec - Configuration.MIN_TRANSSEC) > 0)? (transsec - Configuration.MIN_TRANSSEC) : (Configuration.MIN_TRANSSEC - transsec) ;                     
-//
-//                    Configuration.MAX_UPDATE_TIME = (originalUPDATETIME * Math.log(diff)) / 
-//                            Configuration.SPEED_PARAM;
-                    //System.out.println(Configuration.MAX_UPDATE_TIME);
-                    
-               // }
-                //}
-//                if(Configuration.TRANSACTION_COUNTER % learner.fixedSegmentLengthOption.getValue() == 0){
-//                    System.out.println(Configuration.TRANSACTION_COUNTER); // to see progress
-//                    if(speedResults[0] < Configuration.MIN_TRANSSEC/2){
-//                        if(!grouping){
-//                            fasterWithoutGrouping = true;
-//                        }else{
-//                            faster = true;
-//                        }
-//                        updateLastParams(learner);
-//                        return null;
-//                    }   
-//                }
+
             }
             
             double[] speedResults = UtilitiesPPSDM.getActualTransSec();
             SummaryResults results = evaluator.getResults();
             writeResultsToFile(results, speedResults[0], speedResults[1], 
                     Configuration.TRANSACTION_COUNTER);
-//            if(!repeatWithGrouping){
-//                break;
-//            }else if(i == 0){
-//                id++;
-//                grouping = true;
-//            }
-//        }
+
         System.gc();
         return null;
     }
@@ -239,39 +155,8 @@ public class GridSearchLearnEvaluatePPSDMTask implements Task {
         }
     }
     
-     private boolean checkLastParamsForNotGroupingChange(List<Parameter> params){
-        return changed >= 0 && changed < 15; // params were changed so try with and without grouping, if other params are changed only try with grouping
-        
-    }
-    
-    private boolean checkLastParamsForFasterWithoutGroupingConfiguration(List<Parameter> params){
-        if(lastparams[4] >= params.get(4).getValue()  //minSupport   
-            && lastparams[5] >= params.get(5).getValue() //relaxationRate
-            && lastparams[6] >= params.get(6).getValue() //fixedSegmentLength
-        )
-        { // params werent changed to better
-            return true;
-        }else{
-            return false;
-        }
-    }
-    
-    private boolean checkLastParamsForFasterConfiguration(List<Parameter> params){
-        if(
-            lastparams[4] >= params.get(4).getValue()  //minSupport
-            && lastparams[5] >= params.get(5).getValue() //relaxationRate
-            && lastparams[6] >= params.get(6).getValue() //fixedSegmentLength
-            && lastparams[15] >= params.get(15).getValue() //minNumOfChangesInUserModel
-            && lastparams[16] >= params.get(16).getValue()) //minNumOfChangesInMicrocluster
-        { // params werent changed to better
-            return true;
-        }else{
-            return false;
-        }
-    }
-    
+   
     private void updateLastParams(PersonalizedPatternsMiner learner) {
-        
         this.lastparams[0] = Configuration.RECOMMEND_STRATEGY.value();
         this.lastparams[1] = Configuration.SORT_STRATEGY.value();
         this.lastparams[2] = learner.evaluationWindowSizeOption.getValue();
@@ -311,7 +196,6 @@ public class GridSearchLearnEvaluatePPSDMTask implements Task {
         if(learner.minSupportOption.getValue()*learner.fixedSegmentLengthOption.getValue() <= 1){
             return false;
         }
-        
         learner.maxItemsetLengthOption.setValue((int) params.get(8).getValue());
         learner.windowSizeOption.setValue((int) params.get(9).getValue());
         // RESTRICTIONS PARAMETERS

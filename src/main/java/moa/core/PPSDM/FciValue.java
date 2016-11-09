@@ -22,7 +22,7 @@ public class FciValue implements Comparable {
     private double distance = 0.0;
     private List<Integer> items;
     
-    public void computeValue(double lcsVal, double support, int preference){
+    public void computeValue(double lcsVal, double support){
         this.value = Configuration.A*lcsVal + Configuration.B*support; //- preference*Configuration.C;
         this.lcsVal = lcsVal;
         this.support = support;
@@ -113,5 +113,6 @@ public class FciValue implements Comparable {
     public double getDistance(){
         return this.distance;
     }
-    
+
+  
 }
