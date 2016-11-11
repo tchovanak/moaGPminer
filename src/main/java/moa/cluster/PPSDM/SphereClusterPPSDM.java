@@ -156,12 +156,13 @@ public class SphereClusterPPSDM extends Cluster {
 			radiusSmall = radius1;
 		}
 
-		double dist = 0;
-		for (int i = 0; i < center0.length; i++) {
-			double delta = center0[i] - center1[i];
-			dist += delta * delta;
-		}
-		dist = Math.sqrt(dist);
+//		double dist = 0;
+//		for (int i = 0; i < center0.length; i++) {
+//			double delta = center0[i] - center1[i];
+//			dist += delta * delta;
+//		}
+//		dist = Math.sqrt(dist);
+                double dist = UtilitiesPPSDM.distanceBetweenVectors(center0, center1);
 
 		if(dist > radiusSmall + radiusBig)
 			return 0;
@@ -280,7 +281,12 @@ public class SphereClusterPPSDM extends Cluster {
 
 	public double getCenterDistance(Instance instance) {
             double[] center = getCenter();
-            return UtilitiesPPSDM.distanceBetweenVectors(center, instance.toDoubleArray());
+            double distance = UtilitiesPPSDM.distanceBetweenVectors(center, instance.toDoubleArray());
+            if(distance < radius){
+                return distance;
+            }else{
+                return 1.0;
+            }
         }
         
         

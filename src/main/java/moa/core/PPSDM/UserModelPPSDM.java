@@ -21,7 +21,7 @@ public class UserModelPPSDM {
     private Instance currentInstance = null;
     private BlockingQueue<List<Integer>> lastSessions = 
             new ArrayBlockingQueue<>(Configuration.MAX_USER_SESSIONS_HISTORY_IN_USER_MODEL); // queue of last n user sessions
-    private double groupid = 0; // actual group user is part of
+    private double groupid = -1; // actual group user is part of
     private double distance = 0; // distance to his group center
     private int clusteringId = 0;
     

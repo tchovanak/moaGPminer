@@ -78,6 +78,25 @@ public class UtilitiesPPSDM {
         }
     }
     
+    public static <E> List<List<E>> generatePerm(List<E> original) {
+        if(original.size() == 0) { 
+          List<List<E>> result = new ArrayList<List<E>>();
+          result.add(new ArrayList<E>());
+          return result;
+        }
+        E firstElement = original.remove(0);
+        List<List<E>> returnValue = new ArrayList<List<E>>();
+        List<List<E>> permutations = generatePerm(original);
+        for (List<E> smallerPermutated : permutations) {
+          for (int index=0; index <= smallerPermutated.size(); index++) {
+            List<E> temp = new ArrayList<E>(smallerPermutated);
+            temp.add(index, firstElement);
+            returnValue.add(temp);
+          }
+        }
+        return returnValue;
+      }
+    
      public static double computeLongestCommonSubset(List<Integer> list1, List<Integer> list2) {
         int M = list1.size();
         int N = list2.size();

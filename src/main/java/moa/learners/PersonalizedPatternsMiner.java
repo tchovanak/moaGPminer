@@ -172,7 +172,7 @@ public class PersonalizedPatternsMiner extends AbstractLearner implements Observ
                     this.cleanedKmeansClustering = clusterings.get(1);
                 }else{
                     clusterings =
-                            clusterer.kMeans_gta(this.numberOfGroupsOption.getValue(),results, cleanedKmeansClustering);
+                            clusterer.kMeans_gta(this.numberOfGroupsOption.getValue(),results, cleanedKmeansClustering, kmeansClustering);
                     this.kmeansClustering = clusterings.get(0);
                     this.cleanedKmeansClustering = clusterings.get(1);
                 }
@@ -541,7 +541,6 @@ public class PersonalizedPatternsMiner extends AbstractLearner implements Observ
             UserModelPPSDM um = new UserModelPPSDM((int)inst.value(1), 
                     this.numMinNumberOfChangesInUserModel.getValue());
             um.updateWithInstance(inst);
-            um.setGroupid(inst.value(0));
             usermodels.put(uid, um);
             return um;
         }

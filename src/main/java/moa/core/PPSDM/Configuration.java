@@ -67,7 +67,7 @@ public class Configuration {
     /*
         Maximum number of user sessions stored in user model history
     */
-    public static int MAX_USER_SESSIONS_HISTORY_IN_USER_MODEL = 5;
+    public static int MAX_USER_SESSIONS_HISTORY_IN_USER_MODEL = 15;
     
     public static int MAX_INSTANCES_IN_MICROCLUSTER = 100;
     

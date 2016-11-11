@@ -24,6 +24,7 @@ import moa.cluster.CFCluster;
 import com.yahoo.labs.samoa.instances.Instance;
 import com.yahoo.labs.samoa.instances.SparseInstance;
 import java.util.List;
+import moa.core.PPSDM.utils.UtilitiesPPSDM;
 
 public class ClustreamKernelPPSDM extends CFCluster {
 	private static final long serialVersionUID = 1L;
@@ -113,8 +114,7 @@ public class ClustreamKernelPPSDM extends CFCluster {
     public CFCluster getCF(){
         return this;
     }
-
-
+    
     private double getDeviation(){
         double[] variance = getVarianceVector();
         double sumOfDeviation = 0.0;
@@ -179,18 +179,21 @@ public class ClustreamKernelPPSDM extends CFCluster {
     public double getInclusionProbability(Instance instance) {
         //trivial cluster
         if(N == 1){
-            double distance = 0.0;
-            for (int i = 0; i < LS.length; i++) {
-                double d = LS[i] - instance.value(i);
-                distance += d * d;
-            }
-            distance = Math.sqrt(distance);
+            double distance = UtilitiesPPSDM.distanceBetweenVectors(LS, instance.toDoubleArray());
+            
+//            double distance = 0.0;
+//            for (int i = 0; i < LS.length; i++) {
+//                double d = LS[i] - instance.value(i);
+//                distance += d * d;
+//            }
+//            distance = Math.sqrt(distance);
             if( distance < EPSILON )
                 return 1.0;
             return 0.0;
         }
         else{
-            double dist = calcNormalizedDistance(instance.toDoubleArray());
+            //double dist = calcNormalizedDistance(instance.toDoubleArray());
+            double dist = UtilitiesPPSDM.distanceBetweenVectors(getCenter(), instance.toDoubleArray());
             if(dist <= getRadius()){
                 return 1;
             }

@@ -42,6 +42,7 @@ import com.github.javacliparser.IntOption;
 import com.yahoo.labs.samoa.instances.DenseInstance;
 import com.yahoo.labs.samoa.instances.Instance;
 import java.util.Map;
+import moa.core.AutoExpandVector;
 import moa.core.PPSDM.Configuration;
 import moa.core.PPSDM.utils.UtilitiesPPSDM;
 import org.apache.commons.math3.stat.correlation.PearsonsCorrelation;
@@ -115,7 +116,6 @@ public class WithKmeansPPSDM extends AbstractClusterer {
 
 
 		// 1. Determine closest kernel
-                
 		ClustreamKernelPPSDM closestKernel = null;
 		double minDistance = Double.MAX_VALUE;
 		for ( int i = 0; i < kernels.length; i++ ) {
@@ -213,7 +213,7 @@ public class WithKmeansPPSDM extends AbstractClusterer {
 	}
 	
 	public Clustering getClusteringResult(Clustering gtClustering) {
-		return (kMeans_gta(kOption.getValue(), getMicroClusteringResult(), gtClustering)).get(1);
+		return (kMeans_gta(kOption.getValue(), getMicroClusteringResult(), gtClustering, gtClustering)).get(1);
 	}
 
 	public String getName() {
@@ -239,7 +239,7 @@ public class WithKmeansPPSDM extends AbstractClusterer {
 	 * @param data
 	 * @return (macro)clustering - CFClusters
 	 */
-        public  List<Clustering> kMeans_gta(int k, Clustering clustering, Clustering gtClustering) {
+        public  List<Clustering> kMeans_gta(int k, Clustering clustering, Clustering gtClustering, Clustering prevClustering) {
 		ArrayList<CFCluster> microclusters = new ArrayList<CFCluster>();
                 for (int i = 0; i < clustering.size(); i++) {
                     if (clustering.get(i) instanceof CFCluster) {
@@ -268,11 +268,43 @@ public class WithKmeansPPSDM extends AbstractClusterer {
 		//return cleanUpKMeans(kMeans(k, centers, microclusters), microclusters);
                 Clustering kMeansResult = kMeans(k, centers, microclusters);
                 Clustering cleanedKMeansResult = cleanUpKMeans(kMeansResult, microclusters);
+                // TOMAS CHOVANAK - added
+                setIdsOfClusters(kMeansResult,prevClustering);
+                
                 List<Clustering> res = new ArrayList<>();
                 res.add(kMeansResult);
                 res.add(cleanedKMeansResult);
                 return res;
 	}
+        
+        private void setIdsOfClusters(Clustering currentC, Clustering previousC) {
+            // compute optimal ids for new clusters so they correspond with previous clusters
+            List<Integer> ids = new ArrayList<>();
+            for(int i = 0; i < currentC.getClustering().size(); i++){
+                ids.add(i);
+            }
+            AutoExpandVector<Cluster> curClusters = currentC.getClustering();
+            AutoExpandVector<Cluster> prevClusters = previousC.getClustering();
+            List<List<Integer>> idsPerms = UtilitiesPPSDM.generatePerm(ids);
+            List<Integer> bestPerm = new ArrayList<>(ids);
+            double minDist = Double.MAX_VALUE;
+            for(List<Integer> perm: idsPerms){
+                double sumDist = 0.0;
+                for(int curid = 0; curid < curClusters.size(); curid++){
+                    int permid = perm.get(curid);
+                    sumDist += UtilitiesPPSDM.distanceBetweenVectors(curClusters.get(permid).getCenter(), 
+                            prevClusters.get(curid).getCenter());
+                }
+                if(sumDist < minDist){
+                    minDist = sumDist;
+                    bestPerm = perm;
+                }
+            }
+            for(int i = 0; i < curClusters.size(); i++){
+                currentC.getClustering().get(i).setId(bestPerm.get(i));
+            }
+        }
+       
 	
 	/**
 	 * k-means of (micro)clusters, with randomized initialization. 
@@ -355,6 +387,8 @@ public class WithKmeansPPSDM extends AbstractClusterer {
                                 newCenters[i].setId(i);
 				clustering.get(i).clear();
 			}
+                        
+                        
 			
 			// Convergence check
 			boolean converged = true;
@@ -497,4 +531,6 @@ public class WithKmeansPPSDM extends AbstractClusterer {
     public void trainOnSparseInstance(Map<Integer, Double> umInstance) {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
+
+   
 }
