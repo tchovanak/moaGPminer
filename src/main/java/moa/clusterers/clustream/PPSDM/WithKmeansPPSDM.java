@@ -43,6 +43,7 @@ import com.yahoo.labs.samoa.instances.DenseInstance;
 import com.yahoo.labs.samoa.instances.Instance;
 import java.util.Map;
 import moa.core.PPSDM.Configuration;
+import moa.core.PPSDM.utils.UtilitiesPPSDM;
 import org.apache.commons.math3.stat.correlation.PearsonsCorrelation;
 
 /* Changes > Author: Tomas Chovanak
@@ -227,91 +228,8 @@ public class WithKmeansPPSDM extends AbstractClusterer {
 	 * @return dist
 	 */
 	private static double distance(double[] pointA, double [] pointB) {
-              switch (Configuration.DISTANCE_METRIC) {
-                case EUCLIDEAN:
-                    return distanceEuclidean(pointA, pointB);
-                case PEARSON:
-                    return distancePearson(pointA, pointB);
-                default:
-                    return distanceEuclidean(pointA, pointB);
-            }   
+              return UtilitiesPPSDM.distanceBetweenVectors(pointA, pointB);
 	}
-        
-//        /**
-//	 * Distance between two instances.
-//	 * 
-//	 * @param pointA
-//	 * @param pointB
-//	 * @return dist
-//	 */
-//	private static double distance(Instance pointA, Instance pointB) {
-//              switch (Configuration.DISTANCE_METRIC) {
-//                case EUCLIDEAN:
-//                    return distanceEuclidean(pointA, pointB);
-////                case PEARSON:
-////                    return distancePearson(pointA, pointB);
-//                default:
-//                    return distanceEuclidean(pointA, pointB);
-//            }  
-//	}
-        
-        private static double distanceEuclidean(double[] pointA, double [] pointB){
-            double distance = 0.0;
-            for (int i = 0; i < pointA.length; i++) {
-                    double d = pointA[i] - pointB[i];
-                    distance += d * d;
-            }
-            return Math.sqrt(distance);
-        }
-        
-//        private static double distanceEuclidean(Instance pointA, Instance pointB){
-//            double distance = 0.0;
-//            int a = 0;
-//            int b = 0;
-//            int aCnt = pointA.numValues();
-//            int bCnt = pointB.numValues();
-//            while(a < aCnt || b < bCnt) {
-//                int indA = aCnt;
-//                if(a < aCnt){
-//                    indA = pointA.index(a);
-//                }
-//                int indB = bCnt;
-//                if(b < bCnt){
-//                    indB = pointB.index(b);
-//                }
-//                if(indA == indB){
-//                    double diff = pointA.valueSparse(a) - pointB.valueSparse(b); 
-//                    distance += diff * diff;
-//                    if(a < aCnt){a++;}
-//                    if(b < bCnt){b++;}
-//                }else if(indA < indB){
-//                    if(a < aCnt){
-//                        double diff = pointA.valueSparse(a) - 0; 
-//                        distance += diff * diff;
-//                        a++;
-//                    }
-//                }else{
-//                    if(b < bCnt){
-//                        double diff = pointB.valueSparse(b) - 0; 
-//                        distance += diff * diff;
-//                        b++;
-//                    }
-//                }
-//            }
-//            return Math.sqrt(distance);
-//        }
-            // in visited we have all items from one instance
-
-        
-        private static double distancePearson(double[] pointA, double [] pointB){
-            PearsonsCorrelation pcor = new PearsonsCorrelation();
-            double correlation = pcor.correlation(pointA, pointB);
-            if(correlation > 0){
-                return 1-correlation;
-            }else{
-                return correlation + 1;
-            }
-        }
         
 	/**
 	 * k-means of (micro)clusters, with ground-truth-aided initialization.

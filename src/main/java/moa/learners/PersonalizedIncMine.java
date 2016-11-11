@@ -47,6 +47,8 @@ public class PersonalizedIncMine extends AbstractLearner implements Observer {
     void setRelaxationRate(double d) {
         this.r = d;
     }
+
+    
     
     private class Subset {
         private List<Integer> itemset;
@@ -162,6 +164,15 @@ public class PersonalizedIncMine extends AbstractLearner implements Observer {
             this.swmGroups.get(i).deleteObservers();
             this.swmGroups.get(i).addObserver(this);        
         }
+    }
+    
+    public void addFciTable() {
+        double min_sup = new BigDecimal(this.r*this.sigma).setScale(8, RoundingMode.DOWN).doubleValue(); //necessary to correct double rounding error
+        this.swmGroups.add(new FixedLengthWindowManagerPPSDM(min_sup, 
+                this.maxItemsetLengthOption, this.groupFixedSegmentLengthOption, 
+                this.windowSizeOption));
+        this.swmGroups.get(this.swmGroups.size()-1).addObserver(this);
+        fciTablesGroups.add(new FCITablePPSDM());
     }
 
     @Override

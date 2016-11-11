@@ -33,6 +33,7 @@ import moa.core.Measurement;
 import com.github.javacliparser.IntOption;
 import com.yahoo.labs.samoa.instances.DenseInstance;
 import com.yahoo.labs.samoa.instances.Instance;
+import moa.core.PPSDM.utils.UtilitiesPPSDM;
 
 /** Citation: CluStream: Charu C. Aggarwal, Jiawei Han, Jianyong Wang, Philip S. Yu:
  * A Framework for Clustering Evolving Data Streams. VLDB 2003: 81-92
@@ -208,12 +209,7 @@ public class Clustream extends AbstractClusterer{
 	}
 
 	private static double distance(double[] pointA, double [] pointB){
-		double distance = 0.0;
-		for (int i = 0; i < pointA.length; i++) {
-			double d = pointA[i] - pointB[i];
-			distance += d * d;
-		}
-		return Math.sqrt(distance);
+		return UtilitiesPPSDM.distanceBetweenVectors(pointA, pointB);
 	}
 
 	//wrapper... we need to rewrite kmeans to points, not clusters, doesnt make sense anymore

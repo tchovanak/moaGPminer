@@ -28,8 +28,8 @@ import com.yahoo.labs.samoa.instances.Instance;
 import com.yahoo.labs.samoa.instances.SparseInstance;
 import moa.cluster.Cluster;
 import moa.cluster.Miniball;
-import moa.core.PPSDM.Configuration;
-import org.apache.commons.math3.stat.correlation.PearsonsCorrelation;
+import moa.core.PPSDM.utils.UtilitiesPPSDM;
+import net.sf.javaml.distance.NormalizedEuclideanDistance;
 
 
 /**
@@ -50,7 +50,7 @@ public class SphereClusterPPSDM extends Cluster {
 	private double radius;
 	private double weight;
         private Instance instanceCenter;
-
+        private NormalizedEuclideanDistance ned = new NormalizedEuclideanDistance();
 
 	public SphereClusterPPSDM(double[] center, double radius) {
 		this( center, radius, 1.0 );
@@ -204,16 +204,14 @@ public class SphereClusterPPSDM extends Cluster {
 		//vector
 		double[] v = new double[c0.length];
 		//center distance
-		double d = 0;
-
-		for (int i = 0; i < c0.length; i++) {
+                
+                double d = 0;
+                for (int i = 0; i < c0.length; i++) {
 			v[i] = c0[i] - c1[i];
 			d += v[i] * v[i];
 		}
 		d = Math.sqrt(d);
-
-
-
+                
 		double r = 0;
 		double[] c = new double[c0.length];
 
@@ -275,35 +273,17 @@ public class SphereClusterPPSDM extends Cluster {
 
 	@Override
 	public double getInclusionProbability(Instance instance) {
-            if (getCenterDistance(instance) <= getRadius()) {
-                    return 1.0;
-            }
-            return 0.0;
+            double[] center = getCenter();
+            double[] items = instance.toDoubleArray();
+            return UtilitiesPPSDM.similarityBetweenVectors(items, center)/getRadius();
 	}
 
 	public double getCenterDistance(Instance instance) {
-            switch (Configuration.DISTANCE_METRIC) {
-                case EUCLIDEAN:
-                    //return getCenterDistanceWithInstanceEuclidean(instance);
-                    return getCenterDistanceEuclidean(instance);
-                case PEARSON:
-                    return getCenterDistancePearson(instance);
-                default:
-                    return getCenterDistanceEuclidean(instance);
-            }
+            double[] center = getCenter();
+            return UtilitiesPPSDM.distanceBetweenVectors(center, instance.toDoubleArray());
         }
         
-        public double getCenterDistanceEuclidean(Instance instance){
-             double distance = 0.0;
-            //get the center through getCenter so subclass have a chance
-            double[] center = getCenter();
-            for (int i = 0; i < center.length; i++) {
-                    double c = center[i];
-                    double d = c - instance.value(i);
-                    distance += d * d;
-            }
-            return Math.sqrt(distance);
-        }
+        
         
         /*
             (Experimental)
@@ -346,37 +326,25 @@ public class SphereClusterPPSDM extends Cluster {
             return Math.sqrt(distance);
         }
         
-        public double getCenterDistancePearson(Instance instance){
-            PearsonsCorrelation pcor = new PearsonsCorrelation();
-            double[] center = getCenter();
-            double[] items = instance.toDoubleArray();
-            double correlation = pcor.correlation(center, items);
-            if(correlation > 0){
-                return 1 - correlation;
-            }else{
-                return correlation + 1;
-            }
-        }
-        
 
 	public double getCenterDistance(SphereClusterPPSDM other) {
 		return distance(getCenter(), other.getCenter());
 	}
 
-	/*
-	 * the minimal distance between the surface of two clusters.
-	 * is negative if the two clusters overlap
-	 */
-	public double getHullDistance(SphereClusterPPSDM other) {
-		double distance = 0.0;
-		//get the center through getCenter so subclass have a chance
-		double[] center0 = getCenter();
-		double[] center1 = other.getCenter();
-		distance = distance(center0, center1);
-
-		distance = distance - getRadius() - other.getRadius();
-		return distance;
-	}
+//	/*
+//	 * the minimal distance between the surface of two clusters.
+//	 * is negative if the two clusters overlap
+//	 */
+//	public double getHullDistance(SphereClusterPPSDM other) {
+//		double distance = 0.0;
+//		//get the center through getCenter so subclass have a chance
+//		double[] center0 = getCenter();
+//		double[] center1 = other.getCenter();
+//		distance = distance(center0, center1);
+//
+//		distance = distance - getRadius() - other.getRadius();
+//		return distance;
+//	}
 
 	/*
 	 */
@@ -403,36 +371,9 @@ public class SphereClusterPPSDM extends Cluster {
 	}
 
 	private double distance(double[] v1, double[] v2){
-            switch (Configuration.DISTANCE_METRIC) {
-                case EUCLIDEAN:
-                    return euclideanDistance(v1,v2);
-                case PEARSON:
-                    return pearsonDistance(v1,v2);
-                default:
-                    return euclideanDistance(v1,v2);
-            }	
+            return UtilitiesPPSDM.distanceBetweenVectors(v1, v2);
         }
         
-        private double euclideanDistance(double[] v1, double[] v2){
-            double distance = 0.0;
-            double[] center = getCenter();
-            for (int i = 0; i < center.length; i++) {
-                    double d = v1[i] - v2[i];
-                    distance += d * d;
-            }
-            return Math.sqrt(distance);
-        }
-        
-        private double pearsonDistance(double[] v1, double[] v2){
-            PearsonsCorrelation pcor = new PearsonsCorrelation();
-            double correlation = pcor.correlation(v1, v2);
-            if(correlation > 0){
-                return 1-correlation;
-            }else{
-                return correlation + 1;
-            }
-        }
-
 	public double[] getDistanceVector(Instance instance){
 		return distanceVector(getCenter(), instance.toDoubleArray());
 	}
@@ -448,8 +389,7 @@ public class SphereClusterPPSDM extends Cluster {
 		}
 		return v;
 	}
-
- 
+        
 	/**
 	 * Samples this cluster by returning a point from inside it.
 	 * @param random a random number source
@@ -497,6 +437,8 @@ public class SphereClusterPPSDM extends Cluster {
 		infoTitle.add("Radius");
 		infoValue.add(Double.toString(getRadius()));
 	}
+
+    
 
    
 

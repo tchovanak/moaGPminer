@@ -30,6 +30,7 @@ import java.util.BitSet;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import moa.core.PPSDM.Configuration;
 import moa.core.PPSDM.dto.RecommendationResults;
 import moa.core.PPSDM.dto.SummaryResults;
 import moa.core.PPSDM.utils.UtilitiesPPSDM;
@@ -101,7 +102,9 @@ public class PPSDMRecommendationEvaluator extends AbstractMOAObject{
             writer.append("PRECISION GO");writer.append(',');  // evaluation test length
             writer.append("RECALL GO");writer.append(',');  // evaluation test length
             writer.append("NDCG GO");writer.append(',');  // evaluation test length
-            writer.append("TRANSSEC");writer.append('\n');
+            writer.append("TRANSSEC");writer.append(',');
+            writer.append("GROUPS");writer.append(',');
+            writer.append("GROUPS CHANGES DIV");writer.append('\n');
             writer.flush();
         } catch (IOException ex) {
             Logger.getLogger(PPSDMRecommendationEvaluator.class.getName()).log(Level.SEVERE, null, ex);
@@ -204,8 +207,12 @@ public class PPSDMRecommendationEvaluator extends AbstractMOAObject{
             }
             writer.append(',');
            
+            
             // number of hits from group
-            writer.append((transsec).toString());writer.append('\n');
+            writer.append((transsec).toString());writer.append(',');
+            double pom = Configuration.GROUP_CHANGED_TIMES/Configuration.GROUP_CHANGES;
+            writer.append(((Double)pom).toString());writer.append(',');
+            writer.append(((Integer)Configuration.GROUP_COUNTER).toString());writer.append('\n');
             writer.flush(); 
         } catch (IOException ex) {
             Logger.getLogger(PPSDMRecommendationEvaluator.class.getName()).log(Level.SEVERE, null, ex);

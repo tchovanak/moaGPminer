@@ -23,6 +23,12 @@ import java.util.*;
 import moa.core.FrequentItemset;
 import moa.core.PPSDM.Configuration;
 import moa.core.TimingUtils;
+import net.sf.javaml.distance.CosineDistance;
+import net.sf.javaml.distance.CosineSimilarity;
+import net.sf.javaml.distance.EuclideanDistance;
+import net.sf.javaml.distance.NormalizedEuclideanDistance;
+import net.sf.javaml.distance.NormalizedEuclideanSimilarity;
+import net.sf.javaml.distance.PearsonCorrelationCoefficient;
 
 
 /*
@@ -30,10 +36,51 @@ import moa.core.TimingUtils;
 */
 public class UtilitiesPPSDM {
     
+    private static EuclideanDistance ed = new EuclideanDistance();
+    private static NormalizedEuclideanDistance ned = new NormalizedEuclideanDistance();
+    private static NormalizedEuclideanSimilarity es = new NormalizedEuclideanSimilarity();
+    private static CosineDistance cd = new CosineDistance();
+    private static CosineSimilarity cs = new CosineSimilarity();
+    
+    public static double distanceBetweenVectors(double[] a, double b[]){
+        switch (Configuration.DISTANCE_METRIC) {
+            case EUCLIDEAN:
+                return ed.calculateDistance(a,b);
+            case PEARSON:
+                PearsonCorrelationCoefficient pc = new PearsonCorrelationCoefficient();
+                double correlation =  pc.measure(a, b);
+                if(correlation > 0){
+                    return 1 - correlation;
+                }else{
+                    return correlation + 1;
+                }
+            case COSINE:
+                return cd.measure(a, b);
+            default:  
+                return ed.calculateDistance(a,b);
+        }
+    }
+    
+    public static double similarityBetweenVectors(double[] a, double b[]){
+        switch (Configuration.DISTANCE_METRIC) {
+            case EUCLIDEAN:
+                return es.measure(a,b);
+            case PEARSON:
+                PearsonCorrelationCoefficient pc = new PearsonCorrelationCoefficient();
+                double correlation =  pc.measure(a, b);
+                if(correlation < 0){
+                    return -correlation;
+                }
+            case COSINE:
+                return cs.measure(a, b);
+            default:  
+                return es.measure(a,b);
+        }
+    }
+    
      public static double computeLongestCommonSubset(List<Integer> list1, List<Integer> list2) {
         int M = list1.size();
         int N = list2.size();
-        
         // compute length of LCS and all subproblems via dynamic programming
         double lcsVal = 0.0;
         for (Integer list11 : list1) {

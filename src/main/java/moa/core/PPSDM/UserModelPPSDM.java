@@ -40,6 +40,7 @@ public class UserModelPPSDM {
         }
         if(!lastSessions.offer(session)){
             lastSessions.poll();
+            lastSessions.offer(session);
         }
         this.numOfNewSessions++;
     }
@@ -64,6 +65,11 @@ public class UserModelPPSDM {
                 attValues[i]++;
             }
         }
+        
+        for(int i = 0; i < attValues.length; i++){
+            attValues[i] = (double)attValues[i];///(double)this.lastSessions.size();
+        }
+        
         currentInstance = new SparseInstance(1.0,attValues,indices,nItems);
         return currentInstance;
         
@@ -90,7 +96,7 @@ public class UserModelPPSDM {
         }
         Collections.sort(instValues);
         double[] attValuesArray = new double[instValues.size()];
-        for(int i = 0; i < instValues.size(); i++) attValuesArray[i] = instValues.get(i).getVal();
+        for(int i = 0; i < instValues.size(); i++) attValuesArray[i] = instValues.get(i).getVal();///this.lastSessions.size();
         int[] indicesArray = new int[instValues.size()];
         for(int i = 0; i < instValues.size(); i++) indicesArray[i] = instValues.get(i).getIndex(); 
         currentInstance = new SparseInstance(1.0,attValuesArray,indicesArray,nItems);
@@ -122,6 +128,12 @@ public class UserModelPPSDM {
             if(this.groupid != -1 && GroupCounter.groupscounters.length > groupid.intValue()){
                 GroupCounter.groupscounters[groupid.intValue()]++;
             }
+        }
+        if(this.groupid != groupid && this.groupid != -1.0){
+            Configuration.GROUP_CHANGED_TIMES += 1;
+        }
+        if(this.groupid != -1.0){
+            Configuration.GROUP_CHANGES += 1;
         }
         this.groupid = groupid;
     }

@@ -20,11 +20,9 @@
 package moa.clusterers.clustream.PPSDM;
 
 import java.util.ArrayList;
-import java.util.Random;
 import moa.cluster.CFCluster;
 import com.yahoo.labs.samoa.instances.Instance;
 import com.yahoo.labs.samoa.instances.SparseInstance;
-import java.util.LinkedList;
 import java.util.List;
 
 public class ClustreamKernelPPSDM extends CFCluster {

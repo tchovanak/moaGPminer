@@ -16,9 +16,11 @@ import moa.core.InstanceExample;
 import moa.clusterers.clustream.PPSDM.WithKmeansPPSDM;
 import moa.cluster.Clustering;
 import moa.cluster.Cluster;
-import moa.cluster.PPSDM.SphereClusterPPSDM;
 import com.yahoo.labs.samoa.instances.SparseInstance;
 import java.util.concurrent.ConcurrentHashMap;
+import moa.cluster.PPSDM.SphereClusterPPSDM;
+import moa.clusterers.denstream.WithDBSCAN;
+import moa.clusterers.macro.NonConvexCluster;
 import moa.core.PPSDM.Configuration;
 import moa.core.PPSDM.FCITablePPSDM;
 import moa.core.PPSDM.utils.MapUtil;
@@ -107,10 +109,13 @@ public class PersonalizedPatternsMiner extends AbstractLearner implements Observ
     private List<Integer> recsCombined = new ArrayList<>();
     
     private Clustering kmeansClustering;
+    private Clustering dbscanClustering;
     private Clustering cleanedKmeansClustering;
     private int clusteringId = 0;
     private int cntOnlyGroup;
     private int cntOnlyGlobal;
+    private WithDBSCAN clustererDBSCAN;
+    
      
     public PersonalizedPatternsMiner(){
         super();
@@ -145,9 +150,50 @@ public class PersonalizedPatternsMiner extends AbstractLearner implements Observ
         this.clusterer.maxNumKernelsOption.setValue(100);
         this.clusterer.kernelRadiFactorOption.setValue(2);
         this.clusterer.resetLearning();
+        this.clustererDBSCAN =  new WithDBSCAN();
+        this.clustererDBSCAN.resetLearning();
         usermodels.clear();
         usermodels = new ConcurrentHashMap<>();
         System.gc(); // force garbage collection
+    }
+    
+    private void performMacroclusteringClustream(){
+        // B7: PERFORM MACROCLUSTERING
+        Clustering results = clusterer.getMicroClusteringResult();
+        if(results != null){
+            AutoExpandVector<Cluster> clusters = results.getClustering();
+            if(clusters.size() > 0){
+                // save new clustering
+                List<Clustering> clusterings;
+                if(this.kmeansClustering == null){
+                    clusterings =
+                            clusterer.kMeans_rand(this.numberOfGroupsOption.getValue(),results);
+                    this.kmeansClustering = clusterings.get(0);
+                    this.cleanedKmeansClustering = clusterings.get(1);
+                }else{
+                    clusterings =
+                            clusterer.kMeans_gta(this.numberOfGroupsOption.getValue(),results, cleanedKmeansClustering);
+                    this.kmeansClustering = clusterings.get(0);
+                    this.cleanedKmeansClustering = clusterings.get(1);
+                }
+                this.clusteringId++;
+            }
+        }
+    }
+    
+    
+    private void performMacroclusteringDenstream(){
+        this.dbscanClustering = clustererDBSCAN.getClusteringResult();
+        System.out.println("CLUSTERING-------------------------------------------------------" + 
+                this.dbscanClustering.getClustering().size());
+        Configuration.GROUP_COUNTER = this.dbscanClustering.getClustering().size();
+        this.clusteringId++;
+        if(this.incMine.fciTablesGroups.size() < dbscanClustering.getClustering().size()){
+            for(int i = this.incMine.fciTablesGroups.size(); 
+                    i < dbscanClustering.getClustering().size(); i++){
+                this.incMine.addFciTable();
+            }
+        }
     }
     
     @Override
@@ -161,7 +207,8 @@ public class PersonalizedPatternsMiner extends AbstractLearner implements Observ
                 // B4: NULLING USER MODEL CHANGES NUMBER
                 Instance umInstance = um.getNewSparseInstance(this.maxNumPages.getValue());
                 // B5: UPDATE MICROCLUSTERS AND INCREMENT MICROCLUSTERS CHANGES
-                clusterer.trainOnInstance(umInstance);
+                //clusterer.trainOnInstance(umInstance);
+                clustererDBSCAN.trainOnInstance(umInstance);
                 //clusterer.trainOnSparseInstance(umInstance);
                 this.microclusteringUpdatesCounter++;
                 if(this.microclusteringUpdatesCounter > this.numMinNumberOfMicroclustersUpdates.getValue()){
@@ -169,31 +216,26 @@ public class PersonalizedPatternsMiner extends AbstractLearner implements Observ
                     // B6: NULLING MICROCLUSTERS UPDATES COUNTER
                     this.microclusteringUpdatesCounter = 0;
                     // B7: PERFORM MACROCLUSTERING
-                    Clustering results = clusterer.getMicroClusteringResult();
-                    if(results != null){
-                        AutoExpandVector<Cluster> clusters = results.getClustering();
-                        if(clusters.size() > 0){
-                            // save new clustering
-                            List<Clustering> clusterings;
-                            if(this.kmeansClustering == null){
-                                clusterings =
-                                        clusterer.kMeans_rand(this.numberOfGroupsOption.getValue(),results);
-                                this.kmeansClustering = clusterings.get(0);
-                                this.cleanedKmeansClustering = clusterings.get(1);
-                            }else{
-                                clusterings =
-                                        clusterer.kMeans_gta(this.numberOfGroupsOption.getValue(),results, cleanedKmeansClustering);
-                                this.kmeansClustering = clusterings.get(0);
-                                this.cleanedKmeansClustering = clusterings.get(1);
-                            }
-                            this.clusteringId++;
-                            // B8 : CLEAR OLD USER MODELS
-                            this.clearUserModels();
-                        }
+                    switch(Configuration.CLUSTERING_METHOD){
+                        case CLUSTREAM:
+                            performMacroclusteringClustream();
+                            break;
+                        case DENSTREAM:
+                            performMacroclusteringDenstream();
+                            break;
                     }
+                    // B8 : CLEAR OLD USER MODELS
+                    this.clearUserModels();
                 }
             }
-            updateGroupingInUserModel(um);
+            switch(Configuration.CLUSTERING_METHOD){
+                case CLUSTREAM:
+                    updateGroupingInUserModelClustream(um);
+                    break;
+                case DENSTREAM:
+                    updateGroupingInUserModelDenstream(um);
+                    break;
+            }
             double groupid = um.getGroupid(); // now update instance with groupid from user model
             if(groupid > -1){   
                 int nItems = inst.numValues();
@@ -214,7 +256,35 @@ public class PersonalizedPatternsMiner extends AbstractLearner implements Observ
     }
     
     
-    private void updateGroupingInUserModel(UserModelPPSDM um) {
+    private void updateGroupingInUserModelDenstream(UserModelPPSDM um) {
+        if(this.clusteringId > um.getClusteringId()){
+            // in um there is not set group for actual clustering so we need to set it now
+            Instance umInstance = um.getInstance();   
+            if(umInstance == null){
+                return;
+            }
+            List<Cluster> clusters = null;
+            if(dbscanClustering != null){  // if already clustering was performed
+                clusters = this.dbscanClustering.getClustering();
+            }
+            for(Cluster c : clusters){
+                NonConvexCluster cs = (NonConvexCluster) c; 
+                double prob = cs.getInclusionProbability(umInstance);
+                NonConvexCluster bestCluster;
+                double minProb = 0.0;
+                if(prob > 0.0 && prob > minProb){
+                    bestCluster = cs;
+                    minProb = prob;
+                    um.setGroupid(bestCluster.getId());
+                    um.setDistance(1-prob);
+                }
+                um.setClusteringId(this.clusteringId);
+            }
+        }
+    }
+    
+    
+    private void updateGroupingInUserModelClustream(UserModelPPSDM um) {
         if(this.clusteringId > um.getClusteringId()){
             // in um there is not set group for actual clustering so we need to set it now
             Instance umInstance = um.getInstance();   
@@ -230,14 +300,13 @@ public class PersonalizedPatternsMiner extends AbstractLearner implements Observ
             for(Cluster c : clusters){
                 SphereClusterPPSDM cs = (SphereClusterPPSDM) c; // kmeans produce sphere clusters
                 //double dist = cs.getCenterDistance(umInstance)/cs.getRadius();
-                double dist = cs.getCenterDistancePearson(umInstance);
+                double dist = cs.getCenterDistance(umInstance);
                 if(dist < 1.0 && dist < minDist){
                     bestCluster = cs;
                     minDist = dist;
                     um.setGroupid(bestCluster.getId());
                     um.setDistance(dist);
-                }
-                    
+                } 
             }
             um.setClusteringId(this.clusteringId);
         }
@@ -294,7 +363,7 @@ public class PersonalizedPatternsMiner extends AbstractLearner implements Observ
             }
         }
         
-        if(useGroupingOption.isSet() && kmeansClustering != null){
+        if(useGroupingOption.isSet() && dbscanClustering != null){
             // if already clustering was performed
             Double groupid = -1.0;
             UserModelPPSDM um = getUserModelFromInstance(session);
@@ -334,8 +403,6 @@ public class PersonalizedPatternsMiner extends AbstractLearner implements Observ
         Collections.sort(mapFciWeightGroup);
         Collections.sort(mapFciWeightGlobal);
         
-        
-        
         switch (Configuration.RECOMMEND_STRATEGY) {
             case VOTES:
                 generateRecsVoteStrategy(mapFciWeightGlobal,
@@ -361,6 +428,8 @@ public class PersonalizedPatternsMiner extends AbstractLearner implements Observ
         List<FCITablePPSDM> fciTablesGroup = this.incMine.fciTablesGroups;
         List<FciValue> allPatterns = new ArrayList<>();
         
+        fciTableGlobal.computeFcis(this.minSupportOption.getValue(),
+                this.fixedSegmentLengthOption.getValue());
         Iterator<FrequentItemset> itGlob = fciTableGlobal.getFcis().iterator();
         while(itGlob.hasNext()){
             FrequentItemset sfci = itGlob.next();
@@ -375,6 +444,8 @@ public class PersonalizedPatternsMiner extends AbstractLearner implements Observ
         }
         int groupid = 0;
         for(FCITablePPSDM gTable: fciTablesGroup){
+            gTable.computeFcis(this.minSupportOption.getValue(),
+                this.fixedSegmentLengthOption.getValue());
             Iterator<FrequentItemset> itGr = gTable.getFcis().iterator();
             while(itGr.hasNext()){
                 FrequentItemset sfci = itGr.next();
@@ -470,18 +541,8 @@ public class PersonalizedPatternsMiner extends AbstractLearner implements Observ
     }
     
     private double computeSimilarity(List<Integer> items, List<Integer> window) {
-        double hitsVal = 0.0;
-        switch (Configuration.INTERSECT_STRATEGY) {
-            case "LCS":
-                hitsVal = ((double)UtilitiesPPSDM.computeLongestCommonSubset(items,window)) / ((double)window.size());
-                break;
-            case "INTERSECT":
-                double len = window.size();
-                window.retainAll(items);
-                hitsVal = window.size() / len;
-                break;
-        }
-        return hitsVal;
+        return ((double)UtilitiesPPSDM.computeLongestCommonSubset(items,window)) / 
+                ((double)window.size());
     }
 
     private void generateRecsVoteStrategy(
@@ -590,9 +651,6 @@ public class PersonalizedPatternsMiner extends AbstractLearner implements Observ
                 break;
             } 
         }
-        
-        
-        
     }
 
     private void generateRecsFirstWinsStrategy(List<FciValue> mapFciWeight,

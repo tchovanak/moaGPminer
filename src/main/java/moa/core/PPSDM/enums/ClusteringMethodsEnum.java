@@ -12,24 +12,24 @@ import java.util.Map;
  *
  * @author Tomas Chovanak
  */
-public enum DistanceMetricsEnum {
+public enum ClusteringMethodsEnum {
     
-    EUCLIDEAN(1), PEARSON(2), COSINE(3);
+    CLUSTREAM(1), DENSTREAM(2);
 
     private int distNo;
 
-    private static Map<Integer, DistanceMetricsEnum> map = 
+    private static Map<Integer, ClusteringMethodsEnum> map = 
             new HashMap<>();
 
     static {
-        for (DistanceMetricsEnum stratEnum : DistanceMetricsEnum.values()) {
+        for (ClusteringMethodsEnum stratEnum : ClusteringMethodsEnum.values()) {
             map.put(stratEnum.distNo, stratEnum);
         }
     }
 
-    private DistanceMetricsEnum(final int strat) { distNo = strat; }
+    private ClusteringMethodsEnum(final int strat) { distNo = strat; }
 
-    public static DistanceMetricsEnum valueOf(int stratNo) {
+    public static ClusteringMethodsEnum valueOf(int stratNo) {
         return map.get(stratNo);
     }
     

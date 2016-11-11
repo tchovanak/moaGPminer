@@ -5,6 +5,7 @@
  */
 package moa.core.PPSDM;
 
+import moa.core.PPSDM.enums.ClusteringMethodsEnum;
 import moa.core.PPSDM.enums.DistanceMetricsEnum;
 import moa.core.PPSDM.enums.RecommendStrategiesEnum;
 import moa.core.PPSDM.enums.SortStrategiesEnum;
@@ -61,29 +62,43 @@ public class Configuration {
     /*
         On which transaction semi-fcis snapshot should be made
     */
-    public static int EXTRACT_PATTERNS_AT = 20000;
+    public static int EXTRACT_PATTERNS_AT = 10000;
     
     /*
         Maximum number of user sessions stored in user model history
     */
     public static int MAX_USER_SESSIONS_HISTORY_IN_USER_MODEL = 5;
     
+    public static int MAX_INSTANCES_IN_MICROCLUSTER = 100;
+    
     /*
         Maximum difference in clustering ids of curent clustering and clustering id 
         in user model. When difference is greater than user model is deleted.
     */
-    public static int MAX_DIFFERENCE_OF_CLUSTERING_ID = 5;
+    public static int MAX_DIFFERENCE_OF_CLUSTERING_ID = 50;
     
     /*
         Distance metric used with clustering
     */
-    public static DistanceMetricsEnum DISTANCE_METRIC = DistanceMetricsEnum.EUCLIDEAN;
+    public static DistanceMetricsEnum DISTANCE_METRIC = DistanceMetricsEnum.COSINE;
+    
+    /*
+        Clustering module used 
+    */
+    public static ClusteringMethodsEnum CLUSTERING_METHOD = ClusteringMethodsEnum.DENSTREAM;
     
     public static int TRANSACTION_COUNTER = 0;
     
     public static double STREAM_START_TIME = 0;
     
     public static double START_UPDATE_TIME = 0;
+    
+    public static int GROUP_COUNTER = 0;
+    
+    public static double GROUP_CHANGES = 0;
+ 
+    public static double GROUP_CHANGED_TIMES = 0;
+    public static int DIMENSION_PAGES;
     
     
 }

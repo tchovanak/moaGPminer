@@ -112,7 +112,7 @@ public class GridSearchLearnEvaluatePPSDMTask implements Task {
                 }
                 Example trainInst = stream.nextInstance();
                 /// FOR TESTING LONG TIME SURVIVING OF APPLICATION
-
+                System.out.println(Configuration.TRANSACTION_COUNTER);
                 double[] speedResults = UtilitiesPPSDM.getActualTransSec();
 
                 Example testInst = (Example) trainInst.copy();
@@ -200,6 +200,7 @@ public class GridSearchLearnEvaluatePPSDMTask implements Task {
         learner.windowSizeOption.setValue((int) params.get(9).getValue());
         // RESTRICTIONS PARAMETERS
         learner.maxNumPages.setValue((int) params.get(10).getValue());
+        Configuration.DIMENSION_PAGES = learner.maxNumPages.getValue();
         learner.maxNumUserModels.setValue((int) params.get(11).getValue());
         Configuration.MAX_FCI_SET_COUNT = params.get(12).getValue();
         Configuration.SPEED_PARAM = params.get(13).getValue();
