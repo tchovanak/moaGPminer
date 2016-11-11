@@ -176,6 +176,8 @@ public class PersonalizedPatternsMiner extends AbstractLearner implements Observ
                     this.kmeansClustering = clusterings.get(0);
                     this.cleanedKmeansClustering = clusterings.get(1);
                 }
+                System.out.println("CLUSTERING-------------------------------------------------------" + 
+                this.kmeansClustering.getClustering().size());
                 this.clusteringId++;
             }
         }
@@ -188,7 +190,7 @@ public class PersonalizedPatternsMiner extends AbstractLearner implements Observ
                 this.dbscanClustering.getClustering().size());
         Configuration.GROUP_COUNTER = this.dbscanClustering.getClustering().size();
         this.clusteringId++;
-        if(this.incMine.fciTablesGroups.size() < dbscanClustering.getClustering().size()){
+        if(this.incMine.fciTablesGroups.size() < dbscanClustering.size()){
             for(int i = this.incMine.fciTablesGroups.size(); 
                     i < dbscanClustering.getClustering().size(); i++){
                 this.incMine.addFciTable();
@@ -207,8 +209,15 @@ public class PersonalizedPatternsMiner extends AbstractLearner implements Observ
                 // B4: NULLING USER MODEL CHANGES NUMBER
                 Instance umInstance = um.getNewSparseInstance(this.maxNumPages.getValue());
                 // B5: UPDATE MICROCLUSTERS AND INCREMENT MICROCLUSTERS CHANGES
-                //clusterer.trainOnInstance(umInstance);
-                clustererDBSCAN.trainOnInstance(umInstance);
+                switch(Configuration.CLUSTERING_METHOD){
+                    case CLUSTREAM:
+                        clusterer.trainOnInstance(umInstance);
+                        break;
+                    case DENSTREAM:
+                        clustererDBSCAN.trainOnInstance(umInstance);
+                        break;
+                }
+                
                 //clusterer.trainOnSparseInstance(umInstance);
                 this.microclusteringUpdatesCounter++;
                 if(this.microclusteringUpdatesCounter > this.numMinNumberOfMicroclustersUpdates.getValue()){
@@ -276,7 +285,7 @@ public class PersonalizedPatternsMiner extends AbstractLearner implements Observ
                     bestCluster = cs;
                     minProb = prob;
                     um.setGroupid(bestCluster.getId());
-                    um.setDistance(1-prob);
+                    um.setDistance(0);
                 }
                 um.setClusteringId(this.clusteringId);
             }
@@ -362,8 +371,16 @@ public class PersonalizedPatternsMiner extends AbstractLearner implements Observ
                 mapFciWeightGlobal.add(fciVal);
             }
         }
-        
-        if(useGroupingOption.isSet() && dbscanClustering != null){
+        boolean clusteringPerformed = false;
+        switch(Configuration.CLUSTERING_METHOD){
+            case CLUSTREAM:
+                clusteringPerformed = (kmeansClustering != null);
+                break;
+            case DENSTREAM:
+                clusteringPerformed = (dbscanClustering != null);
+                break;
+        }
+        if(useGroupingOption.isSet() && clusteringPerformed){
             // if already clustering was performed
             Double groupid = -1.0;
             UserModelPPSDM um = getUserModelFromInstance(session);

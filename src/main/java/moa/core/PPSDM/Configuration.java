@@ -85,7 +85,7 @@ public class Configuration {
     /*
         Clustering module used 
     */
-    public static ClusteringMethodsEnum CLUSTERING_METHOD = ClusteringMethodsEnum.DENSTREAM;
+    public static ClusteringMethodsEnum CLUSTERING_METHOD = ClusteringMethodsEnum.CLUSTREAM;
     
     public static int TRANSACTION_COUNTER = 0;
     
